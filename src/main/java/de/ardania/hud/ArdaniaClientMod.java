@@ -1,0 +1,94 @@
+package de.ardania.hud;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Locale;
+
+/**
+ * Client-Einstiegspunkt der Ardania-Info-HUD-Mod.
+ */
+public final class ArdaniaClientMod implements ClientModInitializer {
+
+    public static final String MOD_ID = "ardania_hud";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+
+    public static final boolean DEBUG = Boolean.getBoolean(MOD_ID + ".debug");
+    private static final boolean ANY_SERVER = Boolean.getBoolean(MOD_ID + ".anyServer");
+
+    private static final String SERVER_HOST = "ardania";
+
+    private KeyMapping syncKey;
+
+    @Override
+    public void onInitializeClient() {
+        // Konfiguration laden
+        ArdaniaConfig.load();
+
+        ArdaniaState state = ArdaniaState.getInstance();
+
+        new ArdaniaChatListener(new ArdaniaMessageParser(state)).register();
+
+        HudElementRegistry.addLast(id("info_hud"), new ArdaniaHudRenderer(state));
+
+        registerSyncKey();
+
+        // Beim Server-Join initial synchronisieren (nach kurzer Verzoegerung im Tick-Loop)
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            if (isOnArdania(client) && ArdaniaConfig.getInstance().autoSyncOnJoin) {
+                ArdaniaSyncManager.getInstance().onServerJoin();
+            }
+        });
+
+        // Beim Serverwechsel alles zuruecksetzen
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> state.reset());
+
+        LOGGER.info("Ardania Info HUD geladen");
+    }
+
+    private void registerSyncKey() {
+        // Registriert die Tastenkategorie "Ardania Info HUD", damit Spieler die Taste
+        // im Minecraft-Steuerungsmenue (oder per Mod wie Controlify / ModMenu) frei aendern koennen!
+        KeyMapping.Category category = KeyMapping.Category.register(id("controls"));
+
+        this.syncKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.ardania_hud.sync",
+                InputConstants.KEY_J,
+                category
+        ));
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            ArdaniaSyncManager.getInstance().tick(client);
+
+            while (this.syncKey.consumeClick()) {
+                if (client.player != null) {
+                    client.player.sendOverlayMessage(Component.translatable("message.ardania_hud.syncing"));
+                }
+                ArdaniaSyncManager.getInstance().forceFullSync(client);
+            }
+        });
+    }
+
+    public static boolean isOnArdania(Minecraft client) {
+        if (ANY_SERVER) {
+            return true;
+        }
+        ServerData server = client.getCurrentServer();
+        return server != null && server.ip != null && server.ip.toLowerCase(Locale.ROOT).contains(SERVER_HOST);
+    }
+
+    public static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath(MOD_ID, path);
+    }
+}
