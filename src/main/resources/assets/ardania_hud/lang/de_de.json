@@ -1,0 +1,20 @@
+{
+	"key.category.ardania_hud.controls": "Ardania Info HUD",
+	"key.ardania_hud.sync": "HUD mit Server synchronisieren",
+	"message.ardania_hud.syncing": "Ardania HUD: Synchronisiere mit Server ...",
+	"config.ardania_hud.title": "Ardania Info HUD - Einstellungen",
+	"config.ardania_hud.enabled": "HUD aktivieren",
+	"config.ardania_hud.position": "Position",
+	"config.ardania_hud.position.middle_right": "Rechts Mitte (Hypixel)",
+	"config.ardania_hud.position.top_right": "Oben Rechts",
+	"config.ardania_hud.position.bottom_right": "Unten Rechts",
+	"config.ardania_hud.show_money": "Euronen anzeigen",
+	"config.ardania_hud.show_points": "ArdaPoints anzeigen",
+	"config.ardania_hud.show_playtime": "Spielzeit anzeigen",
+	"config.ardania_hud.show_jobs": "Jobs anzeigen",
+	"config.ardania_hud.auto_sync": "Automatischer Sync",
+	"config.ardania_hud.money_interval": "Geld Cooldown",
+	"config.ardania_hud.points_interval": "Punkte Intervall",
+	"config.ardania_hud.playtime_interval": "Spielzeit Intervall",
+	"config.ardania_hud.sync_join": "Sync beim Beitreten"
+}
