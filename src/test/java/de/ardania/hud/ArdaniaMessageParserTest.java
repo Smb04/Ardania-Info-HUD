@@ -138,6 +138,29 @@ class ArdaniaMessageParserTest {
         assertEquals(24, jobs.get(0).level());
     }
 
+    @Test
+    void parseAllOtherJobTypes() {
+        parser.parse("[ArdaniaJobs] Spieler: PX_Sven", false);
+        parser.parse("|||||||||||||||||||||||||||| Level 15 for Fischer: 200/500xp", false);
+        parser.parse("|||||||||||||||||||||||||||| Level 30 for Handwerker: 100/1000xp", false);
+        parser.parse("|||||||||||||||||||||||||||| Level 10 for Hexenmeister: 50/300xp", false);
+        parser.parse("|||||||||||||||||||||||||||| Level 42 for Holzf\u00E4ller: 500/2000xp", false);
+        parser.parse("|||||||||||||||||||||||||||| Level 8 for Schaufler: 10/100xp", false);
+
+        List<ArdaniaState.JobEntry> jobs = state.getJobs();
+        assertEquals(5, jobs.size());
+        assertEquals("Fischer", jobs.get(0).name());
+        assertEquals(15, jobs.get(0).level());
+        assertEquals("Handwerker", jobs.get(1).name());
+        assertEquals(30, jobs.get(1).level());
+        assertEquals("Hexenmeister", jobs.get(2).name());
+        assertEquals(10, jobs.get(2).level());
+        assertEquals("Holzf\u00E4ller", jobs.get(3).name());
+        assertEquals(42, jobs.get(3).level());
+        assertEquals("Schaufler", jobs.get(4).name());
+        assertEquals(8, jobs.get(4).level());
+    }
+
     // ------------------------------------------------------------------ Ontime (/ontime Screenshot)
 
     @Test
@@ -172,5 +195,83 @@ class ArdaniaMessageParserTest {
     void ardapointsErrorSuppressed() {
         assertTrue(parser.isUnknownCommandError("ardapoints me ist kein gueltiger Befehl"));
         assertTrue(parser.isUnknownCommandError("[Ardania] Fehler: Der Befehl /ardapoints existiert hier nicht"));
+    }
+
+    @Test
+    void parseJobWithMaxLevel() {
+        state.clearJobs();
+        assertTrue(parser.parse("|||||||||||||||||||||||||||| MAX for Mobhunter: 3120/3120xp", false));
+        assertTrue(parser.parse("|||||||||||||||||||||||||||| Level MAX for Miner: 3120/3120xp", false));
+        assertTrue(parser.parse("|||||||||||||||||||||||||||| Level 30 for Farmer: 3120/3120xp", false));
+        assertTrue(parser.parse("|||||||||||||||||||||||||||| Stufe MAX f\u00FCr Holzf\u00E4ller: 3120/3120xp", false));
+        assertTrue(parser.parse("Job: Fischer - MAX", false));
+
+        List<ArdaniaState.JobEntry> jobs = state.getJobs();
+        assertEquals(5, jobs.size());
+
+        for (ArdaniaState.JobEntry j : jobs) {
+            assertTrue(j.isMax(), "Job " + j.name() + " should be MAX");
+            assertEquals(30, j.level(), "Job " + j.name() + " level should be 30");
+            assertEquals("MAX", j.displayLevel(), "Job " + j.name() + " displayLevel should be MAX");
+        }
+
+        // Silent suppression check for MAX
+        assertTrue(parser.isSilentServerResponse("|||||||||||||||||||||||||||| MAX for Mobhunter: 3120/3120xp"));
+        assertTrue(parser.isSilentServerResponse("|||||||||||||||||||||||||||| Level MAX for Miner: 3120/3120xp"));
+    }
+
+    @Test
+    void statUpdateTimestampExcludesPlaytime() {
+        state.reset();
+        assertEquals(0, state.getLastNonPlaytimeUpdateTimestamp());
+
+        // Spielzeit darf den Zeitstempel NICHT aktualisieren
+        state.updateServerPlaytime("Hauptserver", 1, 0, 0);
+        assertEquals(0, state.getLastNonPlaytimeUpdateTimestamp());
+
+        // Geld aktualisiert den Zeitstempel
+        state.setEuronen(java.math.BigDecimal.valueOf(100));
+        long t1 = state.getLastNonPlaytimeUpdateTimestamp();
+        assertTrue(t1 > 0);
+
+        // Spielzeit aendert weiterhin nichts
+        state.updateServerPlaytime("Mine", 0, 1, 0);
+        assertEquals(t1, state.getLastNonPlaytimeUpdateTimestamp());
+
+        // ArdaPoints aktualisiert
+        state.setArdaPoints(50);
+        long t2 = state.getLastNonPlaytimeUpdateTimestamp();
+        assertTrue(t2 >= t1);
+
+        // Job aktualisiert
+        state.addOrUpdateJob("Miner", 30, true);
+        long t3 = state.getLastNonPlaytimeUpdateTimestamp();
+        assertTrue(t3 >= t2);
+    }
+
+    @Test
+    void tabDisplayLogic() {
+        long minDisplay = 3000L;
+
+        // 1. Deaktiviert in Konfiguration -> niemals aktiv
+        assertFalse(ArdaniaHudRenderer.isTabDisplayActive(false, true, 1000L, 1500L, minDisplay));
+        assertFalse(ArdaniaHudRenderer.isTabDisplayActive(false, false, 1000L, 1500L, minDisplay));
+
+        // 2. Tab wird gehalten -> immer aktiv
+        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, true, 1000L, 1500L, minDisplay));
+        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, true, 1000L, 6000L, minDisplay));
+
+        // 3. Kurzes Antippen (z. B. nach 150ms losgelassen) -> bleibt fuer 3 Sekunden aktiv
+        long pressStart = 1000L;
+        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, 1150L, minDisplay));
+        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, 2500L, minDisplay));
+        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, 3999L, minDisplay));
+        // Nach Ablauf der 3 Sekunden -> inaktiv
+        assertFalse(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, 4001L, minDisplay));
+
+        // 4. Langes Halten (z. B. 5 Sekunden gehalten und dann losgelassen) -> sofort inaktiv
+        long longPressStart = 1000L;
+        // Loslassen bei 6000ms:
+        assertFalse(ArdaniaHudRenderer.isTabDisplayActive(true, false, longPressStart, 6001L, minDisplay));
     }
 }

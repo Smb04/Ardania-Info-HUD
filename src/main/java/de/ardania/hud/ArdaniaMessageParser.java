@@ -54,13 +54,13 @@ public final class ArdaniaMessageParser {
             "(?iu)\\[ArdaniaJobs\\]\\s+Spieler:");
 
     private static final Pattern JOBS_STATS_LINE = Pattern.compile(
-            "(?iu)(?:[|:;#=\\-\\s]*)\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*(\\d+)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")\\s*:");
+            "(?iu)(?:[|:;#=\\-\\s]*)(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")\\s*:");
 
     private static final Pattern JOB_PARENTHESIZED = Pattern.compile(
-            "(?iu)(" + LETTERS + ")\\s*\\(\\s*(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*(\\d+)\\s*\\)");
+            "(?iu)(" + LETTERS + ")\\s*\\(\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)\\s*\\)");
 
     private static final Pattern JOB_LABELED = Pattern.compile(
-            "(?iu)(?:Job|Beruf)\\s*:\\s*(" + LETTERS + ")\\s*[-:|]?\\s*(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*(\\d+)");
+            "(?iu)(?:Job|Beruf)\\s*:\\s*(" + LETTERS + ")\\s*[-:|]?\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)");
 
     // ------------------------------------------------------------------ Fehler-Meldungen bei unbekannten Befehlen
     private static final Pattern UNKNOWN_COMMAND_ERROR = Pattern.compile(
@@ -209,10 +209,7 @@ public final class ArdaniaMessageParser {
 
         Matcher statsMatcher = JOBS_STATS_LINE.matcher(message);
         if (statsMatcher.find()) {
-            int level = Integer.parseInt(statsMatcher.group(1));
-            String jobName = statsMatcher.group(2);
-            this.state.addOrUpdateJob(jobName, level);
-            return true;
+            return setJob(statsMatcher.group(2), statsMatcher.group(1));
         }
 
         Matcher m = JOB_PARENTHESIZED.matcher(message);
@@ -228,9 +225,17 @@ public final class ArdaniaMessageParser {
         return false;
     }
 
-    private boolean setJob(String name, String level) {
+    private boolean setJob(String name, String levelOrMax) {
+        if (name == null || name.isBlank() || levelOrMax == null) {
+            return false;
+        }
+        if ("MAX".equalsIgnoreCase(levelOrMax.trim())) {
+            this.state.addOrUpdateJob(name.trim(), 30, true);
+            return true;
+        }
         try {
-            this.state.addOrUpdateJob(name, Integer.parseInt(level));
+            int level = Integer.parseInt(levelOrMax.trim());
+            this.state.addOrUpdateJob(name.trim(), level, level >= 30);
             return true;
         } catch (NumberFormatException e) {
             return false;

@@ -34,6 +34,11 @@ public final class ArdaniaConfig {
     public boolean showPlaytime = true;
     public boolean showJobs = true;
 
+    // Auto-Ausblenden & Slide-Animation
+    public boolean autoHide = false;
+    public int autoHideDurationSeconds = 5;
+    public boolean showOnTab = true;
+
     // Automatisierungs- & Synchronisierungs-Intervalle (in Sekunden)
     public boolean autoSyncOnJoin = true;
     public boolean autoSyncPeriodic = true;

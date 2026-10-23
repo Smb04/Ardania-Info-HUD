@@ -12,9 +12,12 @@
 	"config.ardania_hud.show_points": "ArdaPoints anzeigen",
 	"config.ardania_hud.show_playtime": "Spielzeit anzeigen",
 	"config.ardania_hud.show_jobs": "Jobs anzeigen",
+	"config.ardania_hud.show_on_tab": "Bei Tab anzeigen",
 	"config.ardania_hud.auto_sync": "Automatischer Sync",
 	"config.ardania_hud.money_interval": "Geld Cooldown",
 	"config.ardania_hud.points_interval": "Punkte Intervall",
 	"config.ardania_hud.playtime_interval": "Spielzeit Intervall",
-	"config.ardania_hud.sync_join": "Sync beim Beitreten"
+	"config.ardania_hud.sync_join": "Sync beim Beitreten",
+	"config.ardania_hud.auto_hide": "Auto-Ausblenden (Slide)",
+	"config.ardania_hud.auto_hide_duration": "Anzeigedauer"
 }

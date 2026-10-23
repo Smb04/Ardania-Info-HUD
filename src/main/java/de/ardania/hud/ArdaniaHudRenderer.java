@@ -26,6 +26,10 @@ public final class ArdaniaHudRenderer implements HudElement {
     private static final int TEXT_COLOR = 0xFFFFFFFF;
 
     private final ArdaniaState state;
+    private float slideProgress = 1.0f;
+    private long lastFrameTime = -1;
+    private long tabPressStartTime = -1;
+    private boolean tabWasDown = false;
 
     public ArdaniaHudRenderer(ArdaniaState state) {
         this.state = state;
@@ -37,6 +41,58 @@ public final class ArdaniaHudRenderer implements HudElement {
         ArdaniaConfig config = ArdaniaConfig.getInstance();
 
         if (!config.enabled || client.gui.hud.isHidden() || client.player == null || !ArdaniaClientMod.isOnArdania(client)) {
+            this.slideProgress = 0.0f;
+            this.lastFrameTime = -1;
+            this.tabPressStartTime = -1;
+            this.tabWasDown = false;
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+
+        // Tab-Tastenabfrage (Playerlist-Taste)
+        boolean tabDown = config.showOnTab
+                && client.options != null
+                && client.options.keyPlayerList != null
+                && client.options.keyPlayerList.isDown();
+
+        if (tabDown) {
+            if (!this.tabWasDown) {
+                this.tabPressStartTime = now;
+            }
+            this.tabWasDown = true;
+        } else {
+            this.tabWasDown = false;
+        }
+
+        // Bei kurzem Tippen fuer ein paar angenehme Sekunden (3s) sichtbar bleiben
+        long minTabDisplayMs = 3000L;
+        boolean tabActive = isTabDisplayActive(config.showOnTab, tabDown, this.tabPressStartTime, now, minTabDisplayMs);
+
+        // Berechnung der Sichtbarkeit fuer Auto-Ausblenden
+        float targetProgress;
+        if (!config.autoHide) {
+            targetProgress = 1.0f;
+        } else {
+            long lastUpdate = this.state.getLastNonPlaytimeUpdateTimestamp();
+            long displayDurationMs = (long) config.autoHideDurationSeconds * 1000L;
+            boolean statUpdatedRecently = lastUpdate > 0 && (now - lastUpdate < displayDurationMs);
+            boolean shouldBeVisible = statUpdatedRecently || tabActive;
+            targetProgress = shouldBeVisible ? 1.0f : 0.0f;
+        }
+
+        // Weiche Slide-Animation basierend auf vergangener Zeit
+        float dt = (this.lastFrameTime > 0) ? Math.min((now - this.lastFrameTime) / 1000.0f, 0.1f) : 0.016f;
+        this.lastFrameTime = now;
+
+        float slideSpeed = 3.5f; // ca. 0.28s fuer vollstaendiges Ein-/Ausfahren
+        if (this.slideProgress < targetProgress) {
+            this.slideProgress = Math.min(targetProgress, this.slideProgress + (slideSpeed * dt));
+        } else if (this.slideProgress > targetProgress) {
+            this.slideProgress = Math.max(targetProgress, this.slideProgress - (slideSpeed * dt));
+        }
+
+        if (this.slideProgress <= 0.001f) {
             return;
         }
 
@@ -57,7 +113,9 @@ public final class ArdaniaHudRenderer implements HudElement {
         int screenWidth = graphics.guiWidth();
         int screenHeight = graphics.guiHeight();
 
-        int startX = screenWidth - boxWidth - RIGHT_MARGIN;
+        // Sanftes Cubic-Easing (Smoothstep) fuer das horizontale Hereingleiten
+        float eased = this.slideProgress * this.slideProgress * (3.0f - 2.0f * this.slideProgress);
+        int startX = (int) (screenWidth - (eased * (boxWidth + RIGHT_MARGIN)));
         int startY;
 
         switch (config.position) {
@@ -121,18 +179,36 @@ public final class ArdaniaHudRenderer implements HudElement {
                         .append(Component.literal("?").withStyle(ChatFormatting.DARK_GRAY)));
             } else if (jobList.size() == 1) {
                 ArdaniaState.JobEntry j = jobList.getFirst();
+                ChatFormatting levelColor = j.isMax() ? ChatFormatting.GOLD : ChatFormatting.GRAY;
                 lines.add(Component.literal("Job: ").withStyle(ChatFormatting.WHITE)
                         .append(Component.literal(j.name() + " ").withStyle(ChatFormatting.GREEN))
-                        .append(Component.literal("[" + j.level() + "]").withStyle(ChatFormatting.GRAY)));
+                        .append(Component.literal("[" + j.displayLevel() + "]").withStyle(levelColor)));
             } else {
                 lines.add(Component.literal("Jobs:").withStyle(ChatFormatting.WHITE));
                 for (ArdaniaState.JobEntry j : jobList) {
+                    ChatFormatting levelColor = j.isMax() ? ChatFormatting.GOLD : ChatFormatting.GRAY;
                     lines.add(Component.literal(" ").append(Component.literal(j.name() + " ").withStyle(ChatFormatting.GREEN))
-                            .append(Component.literal("[" + j.level() + "]").withStyle(ChatFormatting.GRAY)));
+                            .append(Component.literal("[" + j.displayLevel() + "]").withStyle(levelColor)));
                 }
             }
         }
 
         return lines;
+    }
+
+    /**
+     * Berechnet rein funktional, ob das HUD aufgrund von Tab-Tastendruecken aktiv sein soll.
+     * Wenn Tab gehalten wird -> true.
+     * Wenn Tab nur kurz angetippt wurde -> bleibt fuer minDisplayMs aktiv.
+     * Wenn Tab nach laengerem Halten (> minDisplayMs) losgelassen wird -> sofort false.
+     */
+    public static boolean isTabDisplayActive(boolean showOnTab, boolean tabDown, long tabPressStartTime, long now, long minDisplayMs) {
+        if (!showOnTab) {
+            return false;
+        }
+        if (tabDown) {
+            return true;
+        }
+        return tabPressStartTime > 0 && (now - tabPressStartTime < minDisplayMs);
     }
 }
