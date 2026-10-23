@@ -21,7 +21,15 @@ public final class ArdaniaState {
     /** Deutsches Zahlenformat: Punkt als Tausendertrenner, Komma als Dezimaltrenner. */
     private static final DecimalFormatSymbols GERMAN_SYMBOLS = DecimalFormatSymbols.getInstance(Locale.GERMANY);
 
-    public record JobEntry(String name, int level) {}
+    public record JobEntry(String name, int level, boolean isMax) {
+        public JobEntry(String name, int level) {
+            this(name, level, level >= 30);
+        }
+
+        public String displayLevel() {
+            return (isMax || level >= 30) ? "MAX" : String.valueOf(level);
+        }
+    }
 
     private BigDecimal euronen;
     private boolean euronenKnown;
@@ -29,12 +37,15 @@ public final class ArdaniaState {
     private boolean ardaPointsKnown;
     
     // LinkedHashMap, um die Reihenfolge der Jobs beizubehalten
-    private final Map<String, Integer> jobs = new LinkedHashMap<>();
+    private final Map<String, JobEntry> jobs = new LinkedHashMap<>();
 
     // Spielzeit-Tracking aller Server (Hauptserver, Mine, Creative, Eventserver etc.)
     private final Map<String, Long> serverPlaytimes = new LinkedHashMap<>();
     private long basePlaytimeMinutes = -1;
     private long playtimeBaseTimestamp = -1;
+
+    // Zeitstempel der letzten Statusaktualisierung (ohne Spielzeit) fuer Auto-Hide Animation
+    private volatile long lastNonPlaytimeUpdateTimestamp = 0;
 
     /** Fuer Tests oeffentlich; im Spiel wird {@link #getInstance()} verwendet. */
     public ArdaniaState() {
@@ -50,10 +61,12 @@ public final class ArdaniaState {
     public synchronized void setEuronen(BigDecimal amount) {
         this.euronen = scale(amount);
         this.euronenKnown = true;
+        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
     }
 
     public synchronized void addEuronen(BigDecimal delta) {
         this.euronen = scale(this.euronen.add(delta));
+        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
     }
 
     public synchronized BigDecimal getEuronen() {
@@ -73,11 +86,13 @@ public final class ArdaniaState {
     public synchronized void setArdaPoints(long points) {
         this.ardaPoints = Math.max(0, points);
         this.ardaPointsKnown = true;
+        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
     }
 
     public synchronized void addArdaPoints(long points) {
         this.ardaPoints = Math.max(0, this.ardaPoints + points);
         this.ardaPointsKnown = true;
+        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
     }
 
     public synchronized long getArdaPoints() {
@@ -95,8 +110,15 @@ public final class ArdaniaState {
     // ------------------------------------------------------------------ Jobs
 
     public synchronized void addOrUpdateJob(String jobName, int level) {
+        addOrUpdateJob(jobName, level, level >= 30);
+    }
+
+    public synchronized void addOrUpdateJob(String jobName, int level, boolean isMax) {
         if (jobName == null || jobName.isBlank()) return;
-        this.jobs.put(jobName.trim(), Math.max(0, level));
+        int sanitizedLevel = Math.max(0, level);
+        boolean max = isMax || sanitizedLevel >= 30;
+        this.jobs.put(jobName.trim(), new JobEntry(jobName.trim(), sanitizedLevel, max));
+        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
     }
 
     public synchronized void clearJobs() {
@@ -104,11 +126,17 @@ public final class ArdaniaState {
     }
 
     public synchronized List<JobEntry> getJobs() {
-        List<JobEntry> list = new ArrayList<>(this.jobs.size());
-        for (Map.Entry<String, Integer> entry : this.jobs.entrySet()) {
-            list.add(new JobEntry(entry.getKey(), entry.getValue()));
-        }
-        return Collections.unmodifiableList(list);
+        return Collections.unmodifiableList(new ArrayList<>(this.jobs.values()));
+    }
+
+    // ------------------------------------------------------------------ Status-Update-Tracking (fuer Auto-Hide)
+
+    public long getLastNonPlaytimeUpdateTimestamp() {
+        return this.lastNonPlaytimeUpdateTimestamp;
+    }
+
+    public void notifyStatUpdated() {
+        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
     }
 
     // ------------------------------------------------------------------ Spielzeit
@@ -184,6 +212,7 @@ public final class ArdaniaState {
         this.serverPlaytimes.clear();
         this.basePlaytimeMinutes = -1;
         this.playtimeBaseTimestamp = -1;
+        this.lastNonPlaytimeUpdateTimestamp = 0;
     }
 
     // ------------------------------------------------------------------ Hilfsmethoden

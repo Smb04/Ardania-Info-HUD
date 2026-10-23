@@ -101,6 +101,17 @@ public final class ArdaniaConfigScreen extends Screen {
                     ArdaniaConfig.save();
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
+
+        // 7. Bei Tab anzeigen
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.show_on_tab", config.showOnTab),
+                btn -> {
+                    config.showOnTab = !config.showOnTab;
+                    btn.setMessage(getToggleText("config.ardania_hud.show_on_tab", config.showOnTab));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
 
         // --- Rechte Spalte: Sync-Intervalle & Automatisierung ---
         int rightX = centerX + 5;
@@ -174,6 +185,33 @@ public final class ArdaniaConfigScreen extends Screen {
                     ArdaniaConfig.save();
                 }
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        // 12. Auto-Ausblenden (Slide-Animation)
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.auto_hide", config.autoHide),
+                btn -> {
+                    config.autoHide = !config.autoHide;
+                    btn.setMessage(getToggleText("config.ardania_hud.auto_hide", config.autoHide));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        // 13. Anzeigedauer
+        addRenderableWidget(Button.builder(
+                getAutoHideDurationText(),
+                btn -> {
+                    config.autoHideDurationSeconds = switch (config.autoHideDurationSeconds) {
+                        case 3 -> 5;
+                        case 5 -> 8;
+                        case 8 -> 12;
+                        default -> 3;
+                    };
+                    btn.setMessage(getAutoHideDurationText());
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
 
         // --- Unten: Fertig Button ---
         int contentBottom = Math.max(yLeft, yRight) + buttonHeight;
@@ -226,6 +264,12 @@ public final class ArdaniaConfigScreen extends Screen {
         return Component.translatable("config.ardania_hud.playtime_interval")
                 .append(": ")
                 .append(config.playtimeSyncIntervalMinutes + "m");
+    }
+
+    private Component getAutoHideDurationText() {
+        return Component.translatable("config.ardania_hud.auto_hide_duration")
+                .append(": ")
+                .append(config.autoHideDurationSeconds + "s");
     }
 
     private Component getToggleText(String key, boolean value) {
