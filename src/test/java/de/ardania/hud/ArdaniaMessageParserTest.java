@@ -21,8 +21,6 @@ class ArdaniaMessageParserTest {
         parser = new ArdaniaMessageParser(state);
     }
 
-    // ------------------------------------------------------------------ Euronen absolut (/geld)
-
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
             "[ArdaBank] Dein Kontostand: 38.283,13 Euronen | 38283.13",
@@ -38,8 +36,6 @@ class ArdaniaMessageParserTest {
         assertEquals(new BigDecimal(expected), state.getEuronen());
         assertTrue(state.isEuronenKnown());
     }
-
-    // ------------------------------------------------------------------ [ArdaBank] Buchungen (+ / -)
 
     @Test
     void ardaBankPositiveDelta() {
@@ -93,17 +89,13 @@ class ArdaniaMessageParserTest {
         assertFalse(parser.isUnknownCommandError("Hallo zusammen"));
     }
 
-    // ------------------------------------------------------------------ ArdaPoints
-
     @Test
     void ardapointsFromScreenshot() {
         state.setArdaPoints(10);
-        
-        // Zeile 1 aus Screenshot:
+
         assertTrue(parser.parse("[ArdaniaPoints] Du besitzt 2,578 ArdaniaPoints", false));
         assertEquals(2578, state.getArdaPoints());
 
-        // Zeile 2 aus Login-Begrüßung:
         state.setArdaPoints(0);
         assertTrue(parser.parse("Deine ArdaPoints: 2578 Punkte", false));
         assertEquals(2578, state.getArdaPoints());
@@ -122,8 +114,6 @@ class ArdaniaMessageParserTest {
         assertTrue(parser.parse("Danke fürs Voten! Du hast 25 ArdaPoints erhalten.", false));
         assertEquals(75, state.getArdaPoints());
     }
-
-    // ------------------------------------------------------------------ Jobs
 
     @Test
     void parseJobsStatsFromScreenshot() {
@@ -161,8 +151,6 @@ class ArdaniaMessageParserTest {
         assertEquals(8, jobs.get(4).level());
     }
 
-    // ------------------------------------------------------------------ Ontime (/ontime Screenshot)
-
     @Test
     void parseOntimeMultiLineFullBlock() {
         String fullChatBlock = "Name: PX_Sven\n" +
@@ -175,7 +163,6 @@ class ArdaniaMessageParserTest {
 
         assertTrue(parser.parse(fullChatBlock, false));
         assertTrue(state.isPlaytimeKnown());
-        // 23237 + 13 + 38 + 438 = 23726 min = 16d 11h 26m
         assertEquals(23726, state.getCurrentTotalMinutes());
         assertEquals("16d 11h 26m", state.getFormattedPlaytime());
     }
@@ -215,63 +202,69 @@ class ArdaniaMessageParserTest {
             assertEquals("MAX", j.displayLevel(), "Job " + j.name() + " displayLevel should be MAX");
         }
 
-        // Silent suppression check for MAX
         assertTrue(parser.isSilentServerResponse("|||||||||||||||||||||||||||| MAX for Mobhunter: 3120/3120xp"));
         assertTrue(parser.isSilentServerResponse("|||||||||||||||||||||||||||| Level MAX for Miner: 3120/3120xp"));
     }
 
     @Test
-    void statUpdateTimestampExcludesPlaytime() {
+    void statUpdateTimestampExcludesPlaytimeAndUnchangedValues() throws InterruptedException {
         state.reset();
         assertEquals(0, state.getLastNonPlaytimeUpdateTimestamp());
 
-        // Spielzeit darf den Zeitstempel NICHT aktualisieren
         state.updateServerPlaytime("Hauptserver", 1, 0, 0);
         assertEquals(0, state.getLastNonPlaytimeUpdateTimestamp());
 
-        // Geld aktualisiert den Zeitstempel
-        state.setEuronen(java.math.BigDecimal.valueOf(100));
+        state.setEuronen(BigDecimal.valueOf(100));
         long t1 = state.getLastNonPlaytimeUpdateTimestamp();
         assertTrue(t1 > 0);
 
-        // Spielzeit aendert weiterhin nichts
+        Thread.sleep(5);
+        state.setEuronen(new BigDecimal("100.00"));
+        assertEquals(t1, state.getLastNonPlaytimeUpdateTimestamp());
+
         state.updateServerPlaytime("Mine", 0, 1, 0);
         assertEquals(t1, state.getLastNonPlaytimeUpdateTimestamp());
 
-        // ArdaPoints aktualisiert
+        Thread.sleep(5);
         state.setArdaPoints(50);
         long t2 = state.getLastNonPlaytimeUpdateTimestamp();
-        assertTrue(t2 >= t1);
+        assertTrue(t2 > t1);
 
-        // Job aktualisiert
+        Thread.sleep(5);
+        state.setArdaPoints(50);
+        assertEquals(t2, state.getLastNonPlaytimeUpdateTimestamp());
+
+        Thread.sleep(5);
         state.addOrUpdateJob("Miner", 30, true);
         long t3 = state.getLastNonPlaytimeUpdateTimestamp();
-        assertTrue(t3 >= t2);
+        assertTrue(t3 > t2);
+
+        Thread.sleep(5);
+        state.addOrUpdateJob("Miner", 30, true);
+        assertEquals(t3, state.getLastNonPlaytimeUpdateTimestamp());
     }
 
     @Test
-    void tabDisplayLogic() {
-        long minDisplay = 3000L;
+    void jobNotificationDetected() {
+        assertTrue(parser.isJobNotification("[ArdaniaJobs] Du bist jetzt Level 25 als Miner!"));
+        assertTrue(parser.isJobNotification("[ArdaniaJobs] Du hast den Job Fischer angenommen."));
+        assertFalse(parser.isJobNotification("[ArdaniaJobs] Spieler: PX_Sven"));
+        assertFalse(parser.isJobNotification("|||||||||||||||||||||||||||| Level 24 for Mobhunter: 156.26/3120xp"));
+    }
 
-        // 1. Deaktiviert in Konfiguration -> niemals aktiv
-        assertFalse(ArdaniaHudRenderer.isTabDisplayActive(false, true, 1000L, 1500L, minDisplay));
-        assertFalse(ArdaniaHudRenderer.isTabDisplayActive(false, false, 1000L, 1500L, minDisplay));
-
-        // 2. Tab wird gehalten -> immer aktiv
-        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, true, 1000L, 1500L, minDisplay));
-        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, true, 1000L, 6000L, minDisplay));
-
-        // 3. Kurzes Antippen (z. B. nach 150ms losgelassen) -> bleibt fuer 3 Sekunden aktiv
+    @Test
+    void tabDisplayLogicRespectsConfiguredDuration() {
         long pressStart = 1000L;
-        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, 1150L, minDisplay));
-        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, 2500L, minDisplay));
-        assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, 3999L, minDisplay));
-        // Nach Ablauf der 3 Sekunden -> inaktiv
-        assertFalse(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, 4001L, minDisplay));
 
-        // 4. Langes Halten (z. B. 5 Sekunden gehalten und dann losgelassen) -> sofort inaktiv
-        long longPressStart = 1000L;
-        // Loslassen bei 6000ms:
-        assertFalse(ArdaniaHudRenderer.isTabDisplayActive(true, false, longPressStart, 6001L, minDisplay));
+        for (int seconds : new int[]{3, 5, 8, 10, 15}) {
+            long durationMs = seconds * 1000L;
+
+            assertFalse(ArdaniaHudRenderer.isTabDisplayActive(false, true, pressStart, 1500L, durationMs));
+            assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, true, pressStart, pressStart + durationMs + 5000L, durationMs));
+
+            assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, pressStart + 150L, durationMs));
+            assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, pressStart + durationMs - 1L, durationMs));
+            assertFalse(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, pressStart + durationMs + 1L, durationMs));
+        }
     }
 }

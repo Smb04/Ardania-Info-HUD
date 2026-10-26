@@ -11,14 +11,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Thread-sicherer Zustand des Ardania-HUDs.
- */
 public final class ArdaniaState {
 
     private static final ArdaniaState INSTANCE = new ArdaniaState();
-
-    /** Deutsches Zahlenformat: Punkt als Tausendertrenner, Komma als Dezimaltrenner. */
     private static final DecimalFormatSymbols GERMAN_SYMBOLS = DecimalFormatSymbols.getInstance(Locale.GERMANY);
 
     public record JobEntry(String name, int level, boolean isMax) {
@@ -35,19 +30,14 @@ public final class ArdaniaState {
     private boolean euronenKnown;
     private long ardaPoints;
     private boolean ardaPointsKnown;
-    
-    // LinkedHashMap, um die Reihenfolge der Jobs beizubehalten
-    private final Map<String, JobEntry> jobs = new LinkedHashMap<>();
 
-    // Spielzeit-Tracking aller Server (Hauptserver, Mine, Creative, Eventserver etc.)
+    private final Map<String, JobEntry> jobs = new LinkedHashMap<>();
     private final Map<String, Long> serverPlaytimes = new LinkedHashMap<>();
     private long basePlaytimeMinutes = -1;
     private long playtimeBaseTimestamp = -1;
 
-    // Zeitstempel der letzten Statusaktualisierung (ohne Spielzeit) fuer Auto-Hide Animation
     private volatile long lastNonPlaytimeUpdateTimestamp = 0;
 
-    /** Fuer Tests oeffentlich; im Spiel wird {@link #getInstance()} verwendet. */
     public ArdaniaState() {
         reset();
     }
@@ -56,16 +46,19 @@ public final class ArdaniaState {
         return INSTANCE;
     }
 
-    // ------------------------------------------------------------------ Euronen
-
     public synchronized void setEuronen(BigDecimal amount) {
-        this.euronen = scale(amount);
+        BigDecimal scaled = scale(amount);
+        boolean changed = !this.euronenKnown || this.euronen.compareTo(scaled) != 0;
+        this.euronen = scaled;
         this.euronenKnown = true;
-        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
+        if (changed) {
+            this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
+        }
     }
 
     public synchronized void addEuronen(BigDecimal delta) {
         this.euronen = scale(this.euronen.add(delta));
+        this.euronenKnown = true;
         this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
     }
 
@@ -81,12 +74,14 @@ public final class ArdaniaState {
         return formatMoney(this.euronen);
     }
 
-    // ------------------------------------------------------------------ ArdaPoints
-
     public synchronized void setArdaPoints(long points) {
-        this.ardaPoints = Math.max(0, points);
+        long sanitized = Math.max(0, points);
+        boolean changed = !this.ardaPointsKnown || this.ardaPoints != sanitized;
+        this.ardaPoints = sanitized;
         this.ardaPointsKnown = true;
-        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
+        if (changed) {
+            this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
+        }
     }
 
     public synchronized void addArdaPoints(long points) {
@@ -107,18 +102,20 @@ public final class ArdaniaState {
         return this.ardaPointsKnown ? formatInteger(this.ardaPoints) : "?";
     }
 
-    // ------------------------------------------------------------------ Jobs
-
     public synchronized void addOrUpdateJob(String jobName, int level) {
         addOrUpdateJob(jobName, level, level >= 30);
     }
 
     public synchronized void addOrUpdateJob(String jobName, int level, boolean isMax) {
         if (jobName == null || jobName.isBlank()) return;
+        String trimmed = jobName.trim();
         int sanitizedLevel = Math.max(0, level);
         boolean max = isMax || sanitizedLevel >= 30;
-        this.jobs.put(jobName.trim(), new JobEntry(jobName.trim(), sanitizedLevel, max));
-        this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
+        JobEntry entry = new JobEntry(trimmed, sanitizedLevel, max);
+        JobEntry previous = this.jobs.put(trimmed, entry);
+        if (!entry.equals(previous)) {
+            this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
+        }
     }
 
     public synchronized void clearJobs() {
@@ -129,8 +126,6 @@ public final class ArdaniaState {
         return Collections.unmodifiableList(new ArrayList<>(this.jobs.values()));
     }
 
-    // ------------------------------------------------------------------ Status-Update-Tracking (fuer Auto-Hide)
-
     public long getLastNonPlaytimeUpdateTimestamp() {
         return this.lastNonPlaytimeUpdateTimestamp;
     }
@@ -139,17 +134,11 @@ public final class ArdaniaState {
         this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
     }
 
-    // ------------------------------------------------------------------ Spielzeit
-
-    /**
-     * Aktualisiert oder addiert die Spielzeit fuer eine bestimmte Welt/Server (z. B. "Hauptserver", "Mine", "Creative").
-     */
     public synchronized void updateServerPlaytime(String serverName, long days, long hours, long minutes) {
         if (serverName == null || serverName.isBlank()) return;
         long serverMinutes = (days * 24 * 60) + (hours * 60) + minutes;
         this.serverPlaytimes.put(serverName.trim().toLowerCase(Locale.ROOT), serverMinutes);
-        
-        // Summe aller Server als Basis setzen
+
         long totalSum = 0;
         for (long mins : this.serverPlaytimes.values()) {
             totalSum += mins;
@@ -168,9 +157,6 @@ public final class ArdaniaState {
         return this.basePlaytimeMinutes >= 0;
     }
 
-    /**
-     * Berechnet die aktuelle Gesamtspielzeit (Basis + lokale Online-Zeit seit letztem Abgleich).
-     */
     public synchronized long getCurrentTotalMinutes() {
         if (this.basePlaytimeMinutes < 0) {
             return -1;
@@ -179,9 +165,6 @@ public final class ArdaniaState {
         return this.basePlaytimeMinutes + Math.max(0, elapsedMinutes);
     }
 
-    /**
-     * Liefert eine kompakte formatierte Spielzeit z. B. "16d 3h 5m" oder "3h 12m".
-     */
     public synchronized String getFormattedPlaytime() {
         long totalMin = getCurrentTotalMinutes();
         if (totalMin < 0) {
@@ -200,9 +183,6 @@ public final class ArdaniaState {
         }
     }
 
-    // ------------------------------------------------------------------ Allgemein
-
-    /** Setzt alles zurueck (z. B. beim Verlassen des Servers). */
     public synchronized void reset() {
         this.euronen = scale(BigDecimal.ZERO);
         this.euronenKnown = false;
@@ -214,8 +194,6 @@ public final class ArdaniaState {
         this.playtimeBaseTimestamp = -1;
         this.lastNonPlaytimeUpdateTimestamp = 0;
     }
-
-    // ------------------------------------------------------------------ Hilfsmethoden
 
     private static BigDecimal scale(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP);

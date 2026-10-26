@@ -11,9 +11,6 @@ import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Scoreboard-artiges Info-HUD (Hypixel-Stil), modular anpassbar ueber ardania_hud.json.
- */
 public final class ArdaniaHudRenderer implements HudElement {
 
     private static final int RIGHT_MARGIN = 3;
@@ -24,6 +21,7 @@ public final class ArdaniaHudRenderer implements HudElement {
     private static final int BACKGROUND_COLOR = 0x60000000;
     private static final int HEADER_BG_COLOR = 0x70000000;
     private static final int TEXT_COLOR = 0xFFFFFFFF;
+    private static final float SLIDE_SPEED = 3.5f;
 
     private final ArdaniaState state;
     private float slideProgress = 1.0f;
@@ -49,8 +47,8 @@ public final class ArdaniaHudRenderer implements HudElement {
         }
 
         long now = System.currentTimeMillis();
+        long displayDurationMs = Math.max(1, config.autoHideDurationSeconds) * 1000L;
 
-        // Tab-Tastenabfrage (Playerlist-Taste)
         boolean tabDown = config.showOnTab
                 && client.options != null
                 && client.options.keyPlayerList != null
@@ -65,31 +63,24 @@ public final class ArdaniaHudRenderer implements HudElement {
             this.tabWasDown = false;
         }
 
-        // Bei kurzem Tippen fuer ein paar angenehme Sekunden (3s) sichtbar bleiben
-        long minTabDisplayMs = 3000L;
-        boolean tabActive = isTabDisplayActive(config.showOnTab, tabDown, this.tabPressStartTime, now, minTabDisplayMs);
+        boolean tabActive = isTabDisplayActive(config.showOnTab, tabDown, this.tabPressStartTime, now, displayDurationMs);
 
-        // Berechnung der Sichtbarkeit fuer Auto-Ausblenden
         float targetProgress;
         if (!config.autoHide) {
             targetProgress = 1.0f;
         } else {
             long lastUpdate = this.state.getLastNonPlaytimeUpdateTimestamp();
-            long displayDurationMs = (long) config.autoHideDurationSeconds * 1000L;
             boolean statUpdatedRecently = lastUpdate > 0 && (now - lastUpdate < displayDurationMs);
-            boolean shouldBeVisible = statUpdatedRecently || tabActive;
-            targetProgress = shouldBeVisible ? 1.0f : 0.0f;
+            targetProgress = (statUpdatedRecently || tabActive) ? 1.0f : 0.0f;
         }
 
-        // Weiche Slide-Animation basierend auf vergangener Zeit
         float dt = (this.lastFrameTime > 0) ? Math.min((now - this.lastFrameTime) / 1000.0f, 0.1f) : 0.016f;
         this.lastFrameTime = now;
 
-        float slideSpeed = 3.5f; // ca. 0.28s fuer vollstaendiges Ein-/Ausfahren
         if (this.slideProgress < targetProgress) {
-            this.slideProgress = Math.min(targetProgress, this.slideProgress + (slideSpeed * dt));
+            this.slideProgress = Math.min(targetProgress, this.slideProgress + (SLIDE_SPEED * dt));
         } else if (this.slideProgress > targetProgress) {
-            this.slideProgress = Math.max(targetProgress, this.slideProgress - (slideSpeed * dt));
+            this.slideProgress = Math.max(targetProgress, this.slideProgress - (SLIDE_SPEED * dt));
         }
 
         if (this.slideProgress <= 0.001f) {
@@ -113,38 +104,24 @@ public final class ArdaniaHudRenderer implements HudElement {
         int screenWidth = graphics.guiWidth();
         int screenHeight = graphics.guiHeight();
 
-        // Sanftes Cubic-Easing (Smoothstep) fuer das horizontale Hereingleiten
+        // Smoothstep-Easing fuer die horizontale Slide-Animation
         float eased = this.slideProgress * this.slideProgress * (3.0f - 2.0f * this.slideProgress);
         int startX = (int) (screenWidth - (eased * (boxWidth + RIGHT_MARGIN)));
-        int startY;
+        int startY = switch (config.position) {
+            case TOP_RIGHT -> 20;
+            case BOTTOM_RIGHT -> screenHeight - boxHeight - 20;
+            case MIDDLE_RIGHT -> (screenHeight - boxHeight) / 2;
+        };
 
-        switch (config.position) {
-            case TOP_RIGHT:
-                startY = 20;
-                break;
-            case BOTTOM_RIGHT:
-                startY = screenHeight - boxHeight - 20;
-                break;
-            case MIDDLE_RIGHT:
-            default:
-                startY = (screenHeight - boxHeight) / 2;
-                break;
-        }
-
-        // Hintergrund zeichnen
         graphics.fill(startX, startY, startX + boxWidth, startY + boxHeight, BACKGROUND_COLOR);
         graphics.fill(startX, startY, startX + boxWidth, startY + LINE_HEIGHT + PADDING_Y, HEADER_BG_COLOR);
 
         int currentY = startY + PADDING_Y;
         for (int i = 0; i < lines.size(); i++) {
             Component line = lines.get(i);
-            int textX;
-
-            if (i == 0) {
-                textX = startX + (boxWidth - font.width(line)) / 2;
-            } else {
-                textX = startX + PADDING_X;
-            }
+            int textX = (i == 0)
+                    ? startX + (boxWidth - font.width(line)) / 2
+                    : startX + PADDING_X;
 
             graphics.text(font, line, textX, currentY, TEXT_COLOR, true);
             currentY += LINE_HEIGHT;
@@ -196,19 +173,13 @@ public final class ArdaniaHudRenderer implements HudElement {
         return lines;
     }
 
-    /**
-     * Berechnet rein funktional, ob das HUD aufgrund von Tab-Tastendruecken aktiv sein soll.
-     * Wenn Tab gehalten wird -> true.
-     * Wenn Tab nur kurz angetippt wurde -> bleibt fuer minDisplayMs aktiv.
-     * Wenn Tab nach laengerem Halten (> minDisplayMs) losgelassen wird -> sofort false.
-     */
-    public static boolean isTabDisplayActive(boolean showOnTab, boolean tabDown, long tabPressStartTime, long now, long minDisplayMs) {
+    public static boolean isTabDisplayActive(boolean showOnTab, boolean tabDown, long tabPressStartTime, long now, long displayDurationMs) {
         if (!showOnTab) {
             return false;
         }
         if (tabDown) {
             return true;
         }
-        return tabPressStartTime > 0 && (now - tabPressStartTime < minDisplayMs);
+        return tabPressStartTime > 0 && (now - tabPressStartTime < displayDurationMs);
     }
 }

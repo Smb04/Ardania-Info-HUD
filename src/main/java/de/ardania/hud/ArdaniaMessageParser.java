@@ -4,9 +4,6 @@ import java.math.BigDecimal;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Wertet Chat- und Action-Bar-Nachrichten von Ardania.de aus und aktualisiert den {@link ArdaniaState}.
- */
 public final class ArdaniaMessageParser {
 
     private static final String NUMBER = "(\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{1,2})?|\\d+(?:[.,]\\d{1,2})?)";
@@ -14,8 +11,6 @@ public final class ArdaniaMessageParser {
     private static final String LETTERS = "[\\p{L}\\-]+";
 
     private static final Pattern LEGACY_FORMATTING = Pattern.compile("\u00A7[0-9A-FK-ORXa-fk-orx]");
-
-    // ------------------------------------------------------------------ Geld Pattern
 
     private static final Pattern ABSOLUTE_BALANCE = Pattern.compile(
             "(?iu)(?:\\[ArdaBank\\]\\s*)?(?:Dein\\s+)?(?:Kontostand|Guthaben|Geld|Konto|Verm\u00F6gen|Balance)\\s*:?\\s*" + NUMBER + "\\s*" + CURRENCY);
@@ -32,8 +27,6 @@ public final class ArdaniaMessageParser {
     private static final Pattern ACTIONBAR_INCOME_TRIGGER = Pattern.compile(
             "(?iu)(?<![\\p{L}\\d])\\+\\s*" + NUMBER + "\\s*(?:Euronen?|€|\\$)(?!\\s*XP)");
 
-    // ------------------------------------------------------------------ ArdaPoints Pattern
-
     private static final String POINTS_CURRENCY = "(?:Arda(?:nia)?[\\s-]?Points?|Punkte)";
 
     private static final Pattern ARDAPOINTS_BESITZ = Pattern.compile(
@@ -48,10 +41,11 @@ public final class ArdaniaMessageParser {
     private static final Pattern ARDAPOINTS_ABSOLUTE = Pattern.compile(
             "(?iu)" + POINTS_CURRENCY + "\\s*:?\\s*([0-9.,]+)");
 
-    // ------------------------------------------------------------------ Jobs Pattern
-
     private static final Pattern JOBS_HEADER = Pattern.compile(
             "(?iu)\\[ArdaniaJobs\\]\\s+Spieler:");
+
+    private static final Pattern JOBS_NOTIFICATION = Pattern.compile(
+            "(?iu)\\[ArdaniaJobs\\]");
 
     private static final Pattern JOBS_STATS_LINE = Pattern.compile(
             "(?iu)(?:[|:;#=\\-\\s]*)(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")\\s*:");
@@ -62,16 +56,9 @@ public final class ArdaniaMessageParser {
     private static final Pattern JOB_LABELED = Pattern.compile(
             "(?iu)(?:Job|Beruf)\\s*:\\s*(" + LETTERS + ")\\s*[-:|]?\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)");
 
-    // ------------------------------------------------------------------ Fehler-Meldungen bei unbekannten Befehlen
     private static final Pattern UNKNOWN_COMMAND_ERROR = Pattern.compile(
             "(?iu)(?:Unknown\\s+command|Unbekannter\\s+Befehl|Befehl\\s+(?:wurde\\s+)?nicht\\s+gefunden|command\\s+does\\s+not\\s+exist|Dieser\\s+Befehl\\s+existiert\\s+nicht|Befehl\\s+unbekannt|An\\s+error\\s+occurred\\s+while\\s+executing|Konnte\\s+Befehl\\s+nicht|ardapoints|ardaniapoints|\\[ardania\\]\\s*fehler|fehler:\\s*der\\s*befehl)");
 
-    // ------------------------------------------------------------------ Ontime Pattern
-
-    /**
-     * Erfasst beliebige Serverzeilen aus /ontime:
-     * z. B. "Hauptserver: 16 Tage 3 Stunden 17 Minute", "Mine: 0 Tage 7 Stunden 18 Minute"
-     */
     private static final Pattern ONTIME_SERVER_LINE = Pattern.compile(
             "(?iu)(?:^|\\n|\\r|\\s*)([\\p{L}\\-]+):\\s*(?:(\\d+)\\s*Tage?)?\\s*(?:(\\d+)\\s*Stunden?)?\\s*(?:(\\d+)\\s*Minute(?:n)?)?");
 
@@ -118,7 +105,13 @@ public final class ArdaniaMessageParser {
         return ACTIONBAR_INCOME_TRIGGER.matcher(normalize(rawMessage)).find();
     }
 
-    // ------------------------------------------------------------------ Euronen
+    public boolean isJobNotification(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return false;
+        String m = normalize(rawMessage);
+        return JOBS_NOTIFICATION.matcher(m).find()
+                && !JOBS_HEADER.matcher(m).find()
+                && !JOBS_STATS_LINE.matcher(m).find();
+    }
 
     private boolean parseMoney(String message) {
         Matcher absolute = ABSOLUTE_BALANCE.matcher(message);
@@ -158,8 +151,6 @@ public final class ArdaniaMessageParser {
         return false;
     }
 
-    // ------------------------------------------------------------------ ArdaPoints
-
     private boolean parseArdaPoints(String message) {
         Matcher besitzt = ARDAPOINTS_BESITZ.matcher(message);
         if (besitzt.find()) {
@@ -198,8 +189,6 @@ public final class ArdaniaMessageParser {
             return 0;
         }
     }
-
-    // ------------------------------------------------------------------ Job
 
     private boolean parseJob(String message) {
         if (JOBS_HEADER.matcher(message).find()) {
@@ -242,17 +231,14 @@ public final class ArdaniaMessageParser {
         }
     }
 
-    // ------------------------------------------------------------------ Ontime
-
     private boolean parseOntime(String message) {
         Matcher m = ONTIME_SERVER_LINE.matcher(message);
         boolean matchedAny = false;
 
-        // WICHTIG: while-Schleife, um ALLE Zeilen in einer mehrzeiligen Server-Meldung einzulesen!
         while (m.find()) {
-            // Nur auswerten, wenn mindestens ein Zeitwert (Tage, Stunden oder Minuten) existiert!
+            // Zeilen ohne Zeitangabe (z. B. "Name: PX_Sven") ignorieren
             if (m.group(2) == null && m.group(3) == null && m.group(4) == null) {
-                continue; // Überspringt Zeilen wie "Name: PX_Sven"
+                continue;
             }
 
             String serverName = m.group(1);
@@ -266,8 +252,6 @@ public final class ArdaniaMessageParser {
 
         return matchedAny;
     }
-
-    // ------------------------------------------------------------------ Hilfsmethoden
 
     static String normalize(String raw) {
         return LEGACY_FORMATTING.matcher(raw).replaceAll("")
