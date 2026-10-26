@@ -16,9 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Locale;
 
-/**
- * Client-Einstiegspunkt der Ardania-Info-HUD-Mod.
- */
 public final class ArdaniaClientMod implements ClientModInitializer {
 
     public static final String MOD_ID = "ardania_hud";
@@ -30,10 +27,10 @@ public final class ArdaniaClientMod implements ClientModInitializer {
     private static final String SERVER_HOST = "ardania";
 
     private KeyMapping syncKey;
+    private KeyMapping toggleKey;
 
     @Override
     public void onInitializeClient() {
-        // Konfiguration laden
         ArdaniaConfig.load();
 
         ArdaniaState state = ArdaniaState.getInstance();
@@ -42,24 +39,20 @@ public final class ArdaniaClientMod implements ClientModInitializer {
 
         HudElementRegistry.addLast(id("info_hud"), new ArdaniaHudRenderer(state));
 
-        registerSyncKey();
+        registerKeybinds(state);
 
-        // Beim Server-Join initial synchronisieren (nach kurzer Verzoegerung im Tick-Loop)
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (isOnArdania(client) && ArdaniaConfig.getInstance().autoSyncOnJoin) {
                 ArdaniaSyncManager.getInstance().onServerJoin();
             }
         });
 
-        // Beim Serverwechsel alles zuruecksetzen
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> state.reset());
 
         LOGGER.info("Ardania Info HUD geladen");
     }
 
-    private void registerSyncKey() {
-        // Registriert die Tastenkategorie "Ardania Info HUD", damit Spieler die Taste
-        // im Minecraft-Steuerungsmenue (oder per Mod wie Controlify / ModMenu) frei aendern koennen!
+    private void registerKeybinds(ArdaniaState state) {
         KeyMapping.Category category = KeyMapping.Category.register(id("controls"));
 
         this.syncKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
@@ -68,14 +61,34 @@ public final class ArdaniaClientMod implements ClientModInitializer {
                 category
         ));
 
+        this.toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.ardania_hud.toggle",
+                InputConstants.UNKNOWN.getValue(),
+                category
+        ));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ArdaniaSyncManager.getInstance().tick(client);
 
             while (this.syncKey.consumeClick()) {
+                state.notifyStatUpdated();
                 if (client.player != null) {
                     client.player.sendOverlayMessage(Component.translatable("message.ardania_hud.syncing"));
                 }
                 ArdaniaSyncManager.getInstance().forceFullSync(client);
+            }
+
+            while (this.toggleKey.consumeClick()) {
+                ArdaniaConfig config = ArdaniaConfig.getInstance();
+                config.enabled = !config.enabled;
+                ArdaniaConfig.save();
+                if (config.enabled) {
+                    state.notifyStatUpdated();
+                }
+                if (client.player != null) {
+                    String msgKey = config.enabled ? "message.ardania_hud.toggled_on" : "message.ardania_hud.toggled_off";
+                    client.player.sendOverlayMessage(Component.translatable(msgKey));
+                }
             }
         });
     }

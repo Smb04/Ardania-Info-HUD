@@ -1,7 +1,10 @@
 {
 	"key.category.ardania_hud.controls": "Ardania Info HUD",
 	"key.ardania_hud.sync": "HUD mit Server synchronisieren",
+	"key.ardania_hud.toggle": "HUD ein-/ausblenden",
 	"message.ardania_hud.syncing": "Ardania HUD: Synchronisiere mit Server ...",
+	"message.ardania_hud.toggled_on": "Ardania HUD: Aktiviert",
+	"message.ardania_hud.toggled_off": "Ardania HUD: Deaktiviert",
 	"config.ardania_hud.title": "Ardania Info HUD - Einstellungen",
 	"config.ardania_hud.enabled": "HUD aktivieren",
 	"config.ardania_hud.position": "Position",

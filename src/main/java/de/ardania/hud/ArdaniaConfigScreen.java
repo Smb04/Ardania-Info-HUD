@@ -6,10 +6,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
-/**
- * Ingame-Einstellungsbildschirm fuer ModMenu und Vanilla.
- * Ermoeglicht das Umschalten aller HUD-Optionen sowie der Sync-Intervalle direkt im Spiel.
- */
 public final class ArdaniaConfigScreen extends Screen {
 
     private final Screen parent;
@@ -29,11 +25,9 @@ public final class ArdaniaConfigScreen extends Screen {
         int spacing = 24;
         int startY = 32;
 
-        // --- Linke Spalte: Anzeige & Position ---
         int leftX = centerX - colWidth - 5;
         int yLeft = startY;
 
-        // 1. HUD Aktiviert
         addRenderableWidget(Button.builder(
                 getEnabledText(),
                 btn -> {
@@ -44,7 +38,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
         yLeft += spacing;
 
-        // 2. Position
         addRenderableWidget(Button.builder(
                 getPositionText(),
                 btn -> {
@@ -59,7 +52,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
         yLeft += spacing;
 
-        // 3. Euronen
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.show_money", config.showMoney),
                 btn -> {
@@ -70,7 +62,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
         yLeft += spacing;
 
-        // 4. ArdaPoints
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.show_points", config.showPoints),
                 btn -> {
@@ -81,7 +72,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
         yLeft += spacing;
 
-        // 5. Spielzeit
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.show_playtime", config.showPlaytime),
                 btn -> {
@@ -92,7 +82,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
         yLeft += spacing;
 
-        // 6. Jobs
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.show_jobs", config.showJobs),
                 btn -> {
@@ -103,7 +92,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
         yLeft += spacing;
 
-        // 7. Bei Tab anzeigen
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.show_on_tab", config.showOnTab),
                 btn -> {
@@ -113,11 +101,9 @@ public final class ArdaniaConfigScreen extends Screen {
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
 
-        // --- Rechte Spalte: Sync-Intervalle & Automatisierung ---
         int rightX = centerX + 5;
         int yRight = startY;
 
-        // 7. AutoSync Periodisch an/aus
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.auto_sync", config.autoSyncPeriodic),
                 btn -> {
@@ -128,7 +114,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
         yRight += spacing;
 
-        // 8. Geld Sync Cooldown (15s -> 30s -> 60s -> 120s)
         addRenderableWidget(Button.builder(
                 getMoneyIntervalText(),
                 btn -> {
@@ -144,7 +129,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
         yRight += spacing;
 
-        // 9. ArdaPoints Intervall (30s -> 60s -> 120s -> 300s)
         addRenderableWidget(Button.builder(
                 getPointsIntervalText(),
                 btn -> {
@@ -160,7 +144,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
         yRight += spacing;
 
-        // 10. Spielzeit Intervall (15m -> 30m -> 60m -> 120m)
         addRenderableWidget(Button.builder(
                 getPlaytimeIntervalText(),
                 btn -> {
@@ -176,7 +159,6 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
         yRight += spacing;
 
-        // 11. Join Sync
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.sync_join", config.autoSyncOnJoin),
                 btn -> {
@@ -187,33 +169,33 @@ public final class ArdaniaConfigScreen extends Screen {
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
         yRight += spacing;
 
-        // 12. Auto-Ausblenden (Slide-Animation)
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.auto_hide", config.autoHide),
                 btn -> {
                     config.autoHide = !config.autoHide;
                     btn.setMessage(getToggleText("config.ardania_hud.auto_hide", config.autoHide));
+                    ArdaniaState.getInstance().notifyStatUpdated();
                     ArdaniaConfig.save();
                 }
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
         yRight += spacing;
 
-        // 13. Anzeigedauer
         addRenderableWidget(Button.builder(
                 getAutoHideDurationText(),
                 btn -> {
                     config.autoHideDurationSeconds = switch (config.autoHideDurationSeconds) {
                         case 3 -> 5;
                         case 5 -> 8;
-                        case 8 -> 12;
+                        case 8 -> 10;
+                        case 10 -> 15;
                         default -> 3;
                     };
                     btn.setMessage(getAutoHideDurationText());
+                    ArdaniaState.getInstance().notifyStatUpdated();
                     ArdaniaConfig.save();
                 }
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
 
-        // --- Unten: Fertig Button ---
         int contentBottom = Math.max(yLeft, yRight) + buttonHeight;
         int doneY = Math.max(contentBottom + 16, this.height - 28);
         addRenderableWidget(Button.builder(
@@ -231,6 +213,7 @@ public final class ArdaniaConfigScreen extends Screen {
     @Override
     public void onClose() {
         ArdaniaConfig.save();
+        ArdaniaState.getInstance().notifyStatUpdated();
         if (this.minecraft != null) {
             this.minecraft.setScreenAndShow(this.parent);
         }
