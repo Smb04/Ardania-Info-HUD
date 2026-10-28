@@ -3,7 +3,6 @@ package de.ardania.hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
 public final class ArdaniaConfigScreen extends Screen {
@@ -12,7 +11,7 @@ public final class ArdaniaConfigScreen extends Screen {
     private final ArdaniaConfig config;
 
     public ArdaniaConfigScreen(Screen parent) {
-        super(Component.translatable("config.ardania_hud.title"));
+        super(ArdaniaI18n.translate("config.ardania_hud.title"));
         this.parent = parent;
         this.config = ArdaniaConfig.getInstance();
     }
@@ -20,10 +19,10 @@ public final class ArdaniaConfigScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int colWidth = 150;
+        int colWidth = 155;
         int buttonHeight = 20;
-        int spacing = 24;
-        int startY = 32;
+        int spacing = 22;
+        int startY = 28;
 
         int leftX = centerX - colWidth - 5;
         int yLeft = startY;
@@ -199,10 +198,27 @@ public final class ArdaniaConfigScreen extends Screen {
                 }
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
 
-        int contentBottom = Math.max(yLeft, yRight) + buttonHeight;
-        int doneY = Math.max(contentBottom + 16, this.height - 28);
+        int langY = Math.max(yLeft, yRight) + spacing;
         addRenderableWidget(Button.builder(
-                CommonComponents.GUI_DONE,
+                getLanguageText(),
+                btn -> {
+                    config.language = switch (config.language) {
+                        case AUTO -> ArdaniaConfig.HudLanguage.DE_DE;
+                        case DE_DE -> ArdaniaConfig.HudLanguage.EN_US;
+                        case EN_US -> ArdaniaConfig.HudLanguage.ES_ES;
+                        case ES_ES -> ArdaniaConfig.HudLanguage.FR_FR;
+                        case FR_FR -> ArdaniaConfig.HudLanguage.AUTO;
+                    };
+                    ArdaniaConfig.save();
+                    this.clearWidgets();
+                    this.init();
+                }
+        ).bounds(centerX - 100, langY, 200, buttonHeight).build());
+
+        int contentBottom = langY + buttonHeight;
+        int doneY = Math.max(contentBottom + 8, this.height - 26);
+        addRenderableWidget(Button.builder(
+                ArdaniaI18n.translate("config.ardania_hud.done"),
                 btn -> onClose()
         ).bounds(centerX - 100, doneY, 200, buttonHeight).build());
     }
@@ -210,7 +226,7 @@ public final class ArdaniaConfigScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        graphics.centeredText(this.font, this.title, this.width / 2, 14, 0xFFFFFFFF);
+        graphics.centeredText(this.font, ArdaniaI18n.translate("config.ardania_hud.title"), this.width / 2, 12, 0xFFFFFFFF);
     }
 
     @Override
@@ -225,44 +241,48 @@ public final class ArdaniaConfigScreen extends Screen {
     }
 
     private Component getEnabledText() {
-        return Component.translatable("config.ardania_hud.enabled")
+        return getToggleText("config.ardania_hud.enabled", config.enabled);
+    }
+
+    private Component getLanguageText() {
+        return ArdaniaI18n.translate("config.ardania_hud.language")
                 .append(": ")
-                .append(config.enabled ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF);
+                .append(ArdaniaI18n.translate("config.ardania_hud.language." + config.language.name().toLowerCase()));
     }
 
     private Component getPositionText() {
-        return Component.translatable("config.ardania_hud.position")
+        return ArdaniaI18n.translate("config.ardania_hud.position")
                 .append(": ")
-                .append(Component.translatable("config.ardania_hud.position." + config.position.name().toLowerCase()));
+                .append(ArdaniaI18n.translate("config.ardania_hud.position." + config.position.name().toLowerCase()));
     }
 
     private Component getMoneyIntervalText() {
-        return Component.translatable("config.ardania_hud.money_interval")
+        return ArdaniaI18n.translate("config.ardania_hud.money_interval")
                 .append(": ")
                 .append(config.moneySyncCooldownSeconds + "s");
     }
 
     private Component getPointsIntervalText() {
-        return Component.translatable("config.ardania_hud.points_interval")
+        return ArdaniaI18n.translate("config.ardania_hud.points_interval")
                 .append(": ")
                 .append(config.pointsSyncIntervalSeconds + "s");
     }
 
     private Component getPlaytimeIntervalText() {
-        return Component.translatable("config.ardania_hud.playtime_interval")
+        return ArdaniaI18n.translate("config.ardania_hud.playtime_interval")
                 .append(": ")
                 .append(config.playtimeSyncIntervalMinutes + "m");
     }
 
     private Component getAutoHideDurationText() {
-        return Component.translatable("config.ardania_hud.auto_hide_duration")
+        return ArdaniaI18n.translate("config.ardania_hud.auto_hide_duration")
                 .append(": ")
                 .append(config.autoHideDurationSeconds + "s");
     }
 
     private Component getToggleText(String key, boolean value) {
-        return Component.translatable(key)
+        return ArdaniaI18n.translate(key)
                 .append(": ")
-                .append(value ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF);
+                .append(ArdaniaI18n.translate(value ? "config.ardania_hud.on" : "config.ardania_hud.off"));
     }
 }

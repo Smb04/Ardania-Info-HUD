@@ -57,7 +57,7 @@ public final class ArdaniaMessageParser {
             "(?iu)(?:Job|Beruf)\\s*:\\s*(" + LETTERS + ")\\s*[-:|]?\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)");
 
     private static final Pattern UNKNOWN_COMMAND_ERROR = Pattern.compile(
-            "(?iu)(?:Unknown\\s+command|Unbekannter\\s+Befehl|Befehl\\s+(?:wurde\\s+)?nicht\\s+gefunden|command\\s+does\\s+not\\s+exist|Dieser\\s+Befehl\\s+existiert\\s+nicht|Befehl\\s+unbekannt|An\\s+error\\s+occurred\\s+while\\s+executing|Konnte\\s+Befehl\\s+nicht|ardapoints|ardaniapoints|\\[ardania\\]\\s*fehler|fehler:\\s*der\\s*befehl)");
+            "(?iu)(?:Unknown\\s+command|Unbekannter\\s+Befehl|Befehl\\s+(?:wurde\\s+)?nicht\\s+gefunden|command\\s+does\\s+not\\s+exist|Dieser\\s+Befehl\\s+existiert\\s+nicht|Befehl\\s+unbekannt|An\\s+error\\s+occurred\\s+while\\s+executing|Konnte\\s+Befehl\\s+nicht|ardapoints|ardaniapoints|\\[ardania\\]\\s*fehler|fehler:\\s*der\\s*befehl|diesen\\s+befehl\\s+(?:in\\s+dieser\\s+welt\\s+|hier\\s+|auf\\s+diesem\\s+server\\s+)?nicht\\s+(?:benutzen|verwenden|ausf\u00FChren|ausfuehren|nutzen)|in\\s+dieser\\s+welt\\s+nicht\\s+(?:benutzen|verwenden|erlaubt|verf\u00FCgbar|verfuegbar))");
 
     private static final Pattern ONTIME_SERVER_LINE = Pattern.compile(
             "(?iu)(?:^|\\n|\\r|\\s*)([\\p{L}\\-]+):\\s*(?:(\\d+)\\s*Tage?)?\\s*(?:(\\d+)\\s*Stunden?)?\\s*(?:(\\d+)\\s*Minute(?:n)?)?");

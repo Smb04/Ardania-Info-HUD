@@ -1,54 +1,32 @@
-# Ardania Info HUD – Release v1.0.0
+# Ardania Info HUD – Release v1.5.0
 
-🎉 **Initialer Release für Minecraft 26.2 und 26.3 (Fabric)**
+🎉 **Release v1.5.0 für Minecraft 1.21.X (1.21 – 1.21.11), 26.2 und 26.3 (Fabric)**
 
-Das **Ardania Info HUD** ist ein schlankes, client-seitiges Informations-Overlay im klassischen Scoreboard-Design für den Minecraft-Server **Ardania.de**. Es blendet alle wichtigen Account-Daten unaufdringlich am Bildschirmrand ein, ohne dass Befehle manuell getippt werden müssen.
+Version **1.5.0** erweitert das **Ardania Info HUD** um eine universelle Unterstützung für alle **Minecraft 1.21.X**-Versionen sowie einen **lokalen Zustands-Cache** (`ardania_hud_cache.json`), der auf Unterservern ohne Befehlsunterstützung automatisch die zuletzt bekannten Werte bereitstellt.
 
 ---
 
-### ✨ Highlights & Funktionen
+### ✨ Was ist neu in v1.5.0
 
-* 💰 **Euronen (Geldanzeige)**:
-  * Ruft den tatsächlichen Kontostand automatisch und lautlos über die `[ArdaBank]` ab.
-  * Live-Erfassung von Job-Vergütungen in der Action-Bar (`+0.15$`, `+0,02 Euronen`) mit intelligentem Anti-Spam-Debounce.
-  * Registriert direkte Buchungsmeldungen der ArdaBank (Überweisungen, Käufe, Zinsen) ohne Verzögerung.
-
-* 💠 **ArdaPoints**:
-  * Zeigt deine aktuellen Punkte in Echtzeit an.
-  * Erkennt Daily-Rewards, monatliche Belohnungen und Server-Vote-Gutschriften (`+25 ArdaPoints`).
-
-* ⏳ **Multi-Server Spielzeittracking (Ontime)**:
-  * Summiert die Spielzeiten aller Ardania-Welten (`Hauptserver`, `Mine` / Nether, `Creative`, `Eventserver`) zu deiner tatsächlichen Gesamtspielzeit zusammen.
-  * Zählt die Online-Minuten lokal mit und gleicht sie periodisch im Hintergrund ab.
-
-* ⛏️ **Multi-Job & Joblevel**:
-  * Erkennt automatisch alle deine aktiven Berufe aus `/jobs stats`.
-  * Übersichtliche Anzeige von Berufsbezeichnung und Level (z. B. `Mobhunter [24]`, `Farmer [12]`, `Miner [21]`).
-
-* 🔕 **Stille Synchronisation & intelligenter Chat-Filter**:
-  * Automatische Hintergrund-Abfragen der Mod (`/geld`, `/ardapoints me`, `/jobs stats`, `/ontime`) werden **vollständig aus dem Chat ausgeblendet**.
-  * Fehlermeldungen bei Weltenwechseln (z. B. nicht vorhandene Befehle im Nether) werden automatisch unterdrückt.
-  * **Tippst du selbst einen Befehl im Chat ein**, wird die Antwort wie gewohnt ganz normal angezeigt!
-
-* ⚙️ **Vollständige ModMenu-Integration**:
-  * Ingame-Menü zum Ein-/Ausschalten einzelner Zeilen (Euronen, Punkte, Spielzeit, Jobs).
-  * Einstellbare Position: `Rechts Mitte (Hypixel)`, `Oben Rechts`, `Unten Rechts`.
-  * Frei konfigurierbare Synchronisierungs-Intervalle für Geld, Punkte und Spielzeit.
-
-* 🎮 **Steuerung & Keybinds**:
-  * Taste **`J`** *(Standard)* für sofortigen leisen Komplettabgleich aller Werte.
-  * Frei anpassbar im Vanilla-Menü unter *Optionen → Steuerung → Tastenbelegung*.
+* 💾 **Lokaler Zustands-Cache (`ardania_hud_cache.json`)**:
+  * Speichert den jeweils letzten bekannten Stand für Euronen, ArdaPoints, Spielzeit und Berufe beim Verlassen des Servers sowie bei Aktualisierungen lokal ab.
+  * Sind auf bestimmten Unterservern (z. B. im Nether / `Mine`, `Creative` oder `Eventserver`) einzelne Befehle wie `/jobs stats` oder `/ardapoints me` nicht ausführbar, greift das HUD für genau diese Teilbereiche nahtlos auf den gespeicherten Stand zurück, statt `?` anzuzeigen.
+* 🌍 **Mehrsprachigkeit / Lokalisierung (DE, EN, ES, FR)**:
+  * Vollständige Lokalisierung für **Deutsch (`de_de`)**, **Englisch (`en_us`)**, **Spanisch (`es_es`)** und **Französisch (`fr_fr`)** für HUD-Labels, Meldungen, Tastenbelegungen und ModMenu-Einstellungen – inklusive direkter Sprachauswahl im Ingame-Menü.
+* 🎮 **Volle Minecraft 1.21.X Unterstützung (`1.21` – `1.21.11`)**:
+  * Eine einzige universelle JAR-Datei (`ardania-info-hud-mc1.21.x-1.5.0.jar`) für alle Versionen von `1.21` bis `1.21.11` mit 100 % Feature-Parität zu `26.2` und `26.3`.
+* ⛏️ **MAX-Joblevel & Unicode-Balken-Support**:
+  * Berufe auf Maximalstufe (Level 30) werden im HUD als `[MAX]` in Gold dargestellt (`Mobhunter [MAX]`).
+  * Unterstützt das spezielle Server-Format `Max   Level 30 for <Beruf>` sowie Unicode-Fortschrittsbalken (`▏`, `│`) inklusive vollständiger Chat-Unterdrückung beim stillen Sync.
+* 🎬 **Auto-Hide mit Slide-Animation, Tab-Integration & Toggle-Taste**:
+  * Sanfte Smoothstep-Slide-Animation mit einstellbarer Anzeigedauer (`3s`, `5s`, `8s`, `10s`, `15s`), Einblendung bei `Tab` sowie weichem Raus-Sliden beim Deaktivieren.
+  * Intelligente Toggle-Taste blendet ein bereits automatisch ausgefahrenes HUD beim ersten Tastendruck sofort wieder ein.
 
 ---
 
 ### 📦 Enthaltene Downloads
 
 Wähle die für deine Minecraft-Version passende Datei:
-* `ardania-info-hud-mc26.3-1.0.0.jar` *(für Minecraft 26.3)*
-* `ardania-info-hud-mc26.2-1.0.0.jar` *(für Minecraft 26.2)*
-
-**Voraussetzungen:**
-* Fabric Loader (>= 0.19.5)
-* Fabric API
-* Java 25
-* *(Empfohlen)* ModMenu zur einfachen Konfiguration im Spiel
+* `ardania-info-hud-mc1.21.x-1.5.0.jar` *(für Minecraft 1.21 bis 1.21.11, Java 21+)*
+* `ardania-info-hud-mc26.3-1.5.0.jar` *(für Minecraft 26.3, Java 25+)*
+* `ardania-info-hud-mc26.2-1.5.0.jar` *(für Minecraft 26.2, Java 25+)*

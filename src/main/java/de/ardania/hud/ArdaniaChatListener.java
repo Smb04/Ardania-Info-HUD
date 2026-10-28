@@ -29,6 +29,9 @@ public final class ArdaniaChatListener {
 
         try {
             boolean matched = this.parser.parse(raw, overlay);
+            if (matched) {
+                ArdaniaState.getInstance().saveCache();
+            }
 
             if (overlay && this.parser.isActionBarIncome(raw)) {
                 ArdaniaSyncManager.getInstance().triggerMoneySync();

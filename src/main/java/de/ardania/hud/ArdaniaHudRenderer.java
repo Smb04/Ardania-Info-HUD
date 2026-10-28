@@ -141,33 +141,33 @@ public final class ArdaniaHudRenderer implements HudElement {
 
         if (config.showMoney) {
             String money = this.state.isEuronenKnown() ? this.state.getFormattedEuronen() : "?";
-            lines.add(Component.literal("Euronen: ").withStyle(ChatFormatting.WHITE)
+            lines.add(ArdaniaI18n.translate("hud.ardania_hud.money").append(": ").withStyle(ChatFormatting.WHITE)
                     .append(Component.literal(money).withStyle(ChatFormatting.GOLD)));
         }
 
         if (config.showPoints) {
-            lines.add(Component.literal("ArdaPoints: ").withStyle(ChatFormatting.WHITE)
+            lines.add(ArdaniaI18n.translate("hud.ardania_hud.points").append(": ").withStyle(ChatFormatting.WHITE)
                     .append(Component.literal(this.state.getFormattedArdaPoints()).withStyle(ChatFormatting.AQUA)));
         }
 
         if (config.showPlaytime) {
-            lines.add(Component.literal("Spielzeit: ").withStyle(ChatFormatting.WHITE)
+            lines.add(ArdaniaI18n.translate("hud.ardania_hud.playtime").append(": ").withStyle(ChatFormatting.WHITE)
                     .append(Component.literal(this.state.getFormattedPlaytime()).withStyle(ChatFormatting.LIGHT_PURPLE)));
         }
 
         if (config.showJobs) {
             List<ArdaniaState.JobEntry> jobList = this.state.getJobs();
             if (jobList.isEmpty()) {
-                lines.add(Component.literal("Job: ").withStyle(ChatFormatting.WHITE)
+                lines.add(ArdaniaI18n.translate("hud.ardania_hud.job").append(": ").withStyle(ChatFormatting.WHITE)
                         .append(Component.literal("?").withStyle(ChatFormatting.DARK_GRAY)));
             } else if (jobList.size() == 1) {
                 ArdaniaState.JobEntry j = jobList.getFirst();
                 ChatFormatting levelColor = j.isMax() ? ChatFormatting.GOLD : ChatFormatting.GRAY;
-                lines.add(Component.literal("Job: ").withStyle(ChatFormatting.WHITE)
+                lines.add(ArdaniaI18n.translate("hud.ardania_hud.job").append(": ").withStyle(ChatFormatting.WHITE)
                         .append(Component.literal(j.name() + " ").withStyle(ChatFormatting.GREEN))
                         .append(Component.literal("[" + j.displayLevel() + "]").withStyle(levelColor)));
             } else {
-                lines.add(Component.literal("Jobs:").withStyle(ChatFormatting.WHITE));
+                lines.add(ArdaniaI18n.translate("hud.ardania_hud.jobs").append(":").withStyle(ChatFormatting.WHITE));
                 for (ArdaniaState.JobEntry j : jobList) {
                     ChatFormatting levelColor = j.isMax() ? ChatFormatting.GOLD : ChatFormatting.GRAY;
                     lines.add(Component.literal(" ").append(Component.literal(j.name() + " ").withStyle(ChatFormatting.GREEN))
