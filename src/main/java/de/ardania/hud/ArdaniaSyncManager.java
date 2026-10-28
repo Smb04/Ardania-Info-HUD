@@ -131,8 +131,8 @@ public final class ArdaniaSyncManager {
         this.commandQueue.clear();
         this.commandQueue.add("geld");
         this.commandQueue.add("ardapoints me");
-        this.commandQueue.add("jobs stats");
         this.commandQueue.add("ontime");
+        this.commandQueue.add("jobs stats");
     }
 
     private void queueCommand(String cmd) {

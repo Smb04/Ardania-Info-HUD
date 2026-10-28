@@ -37,6 +37,7 @@ public final class ArdaniaState {
     private long playtimeBaseTimestamp = -1;
 
     private volatile long lastNonPlaytimeUpdateTimestamp = 0;
+    private volatile long lastManualHideTimestamp = 0;
 
     public ArdaniaState() {
         reset();
@@ -130,8 +131,22 @@ public final class ArdaniaState {
         return this.lastNonPlaytimeUpdateTimestamp;
     }
 
+    public long getLastManualHideTimestamp() {
+        return this.lastManualHideTimestamp;
+    }
+
     public void notifyStatUpdated() {
         this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
+    }
+
+    public void hideHudNow() {
+        this.lastNonPlaytimeUpdateTimestamp = 0;
+        this.lastManualHideTimestamp = System.currentTimeMillis();
+    }
+
+    public boolean isAutoHideActive(long now, long displayDurationMs) {
+        long lastUpdate = this.lastNonPlaytimeUpdateTimestamp;
+        return lastUpdate > 0 && (now - lastUpdate < displayDurationMs);
     }
 
     public synchronized void updateServerPlaytime(String serverName, long days, long hours, long minutes) {
@@ -193,6 +208,7 @@ public final class ArdaniaState {
         this.basePlaytimeMinutes = -1;
         this.playtimeBaseTimestamp = -1;
         this.lastNonPlaytimeUpdateTimestamp = 0;
+        this.lastManualHideTimestamp = 0;
     }
 
     private static BigDecimal scale(BigDecimal value) {

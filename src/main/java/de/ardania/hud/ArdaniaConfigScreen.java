@@ -32,6 +32,9 @@ public final class ArdaniaConfigScreen extends Screen {
                 getEnabledText(),
                 btn -> {
                     config.enabled = !config.enabled;
+                    if (config.enabled) {
+                        ArdaniaState.getInstance().notifyStatUpdated();
+                    }
                     btn.setMessage(getEnabledText());
                     ArdaniaConfig.save();
                 }
@@ -213,7 +216,9 @@ public final class ArdaniaConfigScreen extends Screen {
     @Override
     public void onClose() {
         ArdaniaConfig.save();
-        ArdaniaState.getInstance().notifyStatUpdated();
+        if (config.enabled) {
+            ArdaniaState.getInstance().notifyStatUpdated();
+        }
         if (this.minecraft != null) {
             this.minecraft.setScreenAndShow(this.parent);
         }
