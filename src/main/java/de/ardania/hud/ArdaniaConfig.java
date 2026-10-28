@@ -25,7 +25,16 @@ public final class ArdaniaConfig {
         BOTTOM_RIGHT
     }
 
+    public enum HudLanguage {
+        AUTO,
+        DE_DE,
+        EN_US,
+        ES_ES,
+        FR_FR
+    }
+
     public boolean enabled = true;
+    public HudLanguage language = HudLanguage.AUTO;
     public HudPosition position = HudPosition.MIDDLE_RIGHT;
     public boolean showMoney = true;
     public boolean showPoints = true;
@@ -47,6 +56,9 @@ public final class ArdaniaConfig {
     }
 
     public void validate() {
+        if (this.language == null) {
+            this.language = HudLanguage.AUTO;
+        }
         if (this.position == null) {
             this.position = HudPosition.MIDDLE_RIGHT;
         }

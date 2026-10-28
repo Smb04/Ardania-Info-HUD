@@ -58,7 +58,7 @@ dependencies {
 
 processResources {
 	def version = project.version
-	def loaderDep = isMc121 ? "0.16.0" : "0.19.5"
+	def loaderDep = isMc121 ? "0.15.0" : "0.19.5"
 	def mcDep = isMc121 ? ">=1.21 <=1.21.11" : ">=26.2 <=26.3"
 	def javaDep = isMc121 ? "21" : "25"
 

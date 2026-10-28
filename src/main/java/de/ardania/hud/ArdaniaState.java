@@ -1,7 +1,18 @@
 package de.ardania.hud;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
+import net.fabricmc.loader.api.FabricLoader;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
@@ -15,6 +26,16 @@ public final class ArdaniaState {
 
     private static final ArdaniaState INSTANCE = new ArdaniaState();
     private static final DecimalFormatSymbols GERMAN_SYMBOLS = DecimalFormatSymbols.getInstance(Locale.GERMANY);
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
+    private static final class CacheData {
+        String euronen;
+        boolean euronenKnown;
+        long ardaPoints;
+        boolean ardaPointsKnown;
+        List<JobEntry> jobs = new ArrayList<>();
+        Map<String, Long> serverPlaytimes = new LinkedHashMap<>();
+    }
 
     public record JobEntry(String name, int level, boolean isMax) {
         public JobEntry(String name, int level) {
@@ -176,6 +197,9 @@ public final class ArdaniaState {
         if (this.basePlaytimeMinutes < 0) {
             return -1;
         }
+        if (this.playtimeBaseTimestamp <= 0) {
+            return this.basePlaytimeMinutes;
+        }
         long elapsedMinutes = (System.currentTimeMillis() - this.playtimeBaseTimestamp) / 60_000L;
         return this.basePlaytimeMinutes + Math.max(0, elapsedMinutes);
     }
@@ -206,6 +230,120 @@ public final class ArdaniaState {
         this.jobs.clear();
         this.serverPlaytimes.clear();
         this.basePlaytimeMinutes = -1;
+        this.playtimeBaseTimestamp = -1;
+        this.lastNonPlaytimeUpdateTimestamp = 0;
+        this.lastManualHideTimestamp = 0;
+    }
+
+    public static Path getDefaultCachePath() {
+        return FabricLoader.getInstance().getConfigDir().resolve("ardania_hud_cache.json");
+    }
+
+    public synchronized void saveCache() {
+        try {
+            saveCache(getDefaultCachePath());
+        } catch (Exception e) {
+            ArdaniaClientMod.LOGGER.warn("Konnte HUD-Cache nicht speichern.", e);
+        }
+    }
+
+    public synchronized void saveCache(Path cachePath) {
+        if (cachePath == null) {
+            return;
+        }
+        CacheData data = new CacheData();
+        data.euronen = this.euronen != null ? this.euronen.toPlainString() : "0.00";
+        data.euronenKnown = this.euronenKnown;
+        data.ardaPoints = this.ardaPoints;
+        data.ardaPointsKnown = this.ardaPointsKnown;
+        data.jobs = new ArrayList<>(this.jobs.values());
+        data.serverPlaytimes = new LinkedHashMap<>(this.serverPlaytimes);
+
+        try {
+            Path parent = cachePath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            try (Writer writer = Files.newBufferedWriter(cachePath, StandardCharsets.UTF_8)) {
+                GSON.toJson(data, writer);
+            }
+        } catch (IOException e) {
+            ArdaniaClientMod.LOGGER.warn("Konnte HUD-Cache nicht speichern.", e);
+        }
+    }
+
+    public synchronized void loadCache() {
+        try {
+            loadCache(getDefaultCachePath());
+        } catch (Exception e) {
+            ArdaniaClientMod.LOGGER.warn("Konnte HUD-Cache nicht laden.", e);
+        }
+    }
+
+    public synchronized void loadCache(Path cachePath) {
+        if (cachePath == null || !Files.exists(cachePath)) {
+            return;
+        }
+        try (Reader reader = Files.newBufferedReader(cachePath, StandardCharsets.UTF_8)) {
+            CacheData data = GSON.fromJson(reader, CacheData.class);
+            if (data == null) {
+                return;
+            }
+            if (data.euronenKnown && data.euronen != null) {
+                try {
+                    this.euronen = scale(new BigDecimal(data.euronen));
+                    this.euronenKnown = true;
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            if (data.ardaPointsKnown) {
+                this.ardaPoints = Math.max(0, data.ardaPoints);
+                this.ardaPointsKnown = true;
+            }
+            if (data.jobs != null && !data.jobs.isEmpty()) {
+                this.jobs.clear();
+                for (JobEntry entry : data.jobs) {
+                    if (entry != null && entry.name() != null && !entry.name().isBlank()) {
+                        String trimmed = entry.name().trim();
+                        int sanitizedLevel = Math.max(0, entry.level());
+                        boolean max = entry.isMax() || sanitizedLevel >= 30;
+                        this.jobs.put(trimmed, new JobEntry(trimmed, sanitizedLevel, max));
+                    }
+                }
+            }
+            if (data.serverPlaytimes != null && !data.serverPlaytimes.isEmpty()) {
+                this.serverPlaytimes.clear();
+                long totalSum = 0;
+                for (Map.Entry<String, Long> entry : data.serverPlaytimes.entrySet()) {
+                    if (entry.getKey() != null && entry.getValue() != null && entry.getValue() >= 0) {
+                        String key = entry.getKey().trim().toLowerCase(Locale.ROOT);
+                        long mins = entry.getValue();
+                        this.serverPlaytimes.put(key, mins);
+                        totalSum += mins;
+                    }
+                }
+                if (!this.serverPlaytimes.isEmpty()) {
+                    this.basePlaytimeMinutes = totalSum;
+                    if (this.playtimeBaseTimestamp <= 0) {
+                        this.playtimeBaseTimestamp = System.currentTimeMillis();
+                    }
+                }
+            }
+        } catch (IOException | JsonParseException e) {
+            ArdaniaClientMod.LOGGER.warn("Konnte HUD-Cache nicht laden.", e);
+        }
+    }
+
+    public synchronized void onServerJoin() {
+        loadCache();
+        if (this.basePlaytimeMinutes >= 0) {
+            this.playtimeBaseTimestamp = System.currentTimeMillis();
+        }
+        notifyStatUpdated();
+    }
+
+    public synchronized void onServerDisconnect() {
+        saveCache();
         this.playtimeBaseTimestamp = -1;
         this.lastNonPlaytimeUpdateTimestamp = 0;
         this.lastManualHideTimestamp = 0;

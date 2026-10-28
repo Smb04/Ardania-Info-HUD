@@ -34,6 +34,7 @@ public final class ArdaniaClientMod implements ClientModInitializer {
         ArdaniaConfig.load();
 
         ArdaniaState state = ArdaniaState.getInstance();
+        state.loadCache();
 
         new ArdaniaChatListener(new ArdaniaMessageParser(state)).register();
 
@@ -43,12 +44,15 @@ public final class ArdaniaClientMod implements ClientModInitializer {
         registerKeybinds(state, hudRenderer);
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            if (isOnArdania(client) && ArdaniaConfig.getInstance().autoSyncOnJoin) {
-                ArdaniaSyncManager.getInstance().onServerJoin();
+            if (isOnArdania(client)) {
+                state.onServerJoin();
+                if (ArdaniaConfig.getInstance().autoSyncOnJoin) {
+                    ArdaniaSyncManager.getInstance().onServerJoin();
+                }
             }
         });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> state.reset());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> state.onServerDisconnect());
 
         LOGGER.info("Ardania Info HUD geladen");
     }
@@ -74,7 +78,7 @@ public final class ArdaniaClientMod implements ClientModInitializer {
             while (this.syncKey.consumeClick()) {
                 state.notifyStatUpdated();
                 if (client.player != null) {
-                    client.player.sendOverlayMessage(Component.translatable("message.ardania_hud.syncing"));
+                    client.player.sendOverlayMessage(ArdaniaI18n.translate("message.ardania_hud.syncing"));
                 }
                 ArdaniaSyncManager.getInstance().forceFullSync(client);
             }
@@ -91,7 +95,7 @@ public final class ArdaniaClientMod implements ClientModInitializer {
                         ArdaniaConfig.save();
                     }
                     if (client.player != null) {
-                        client.player.sendOverlayMessage(Component.translatable("message.ardania_hud.toggled_off"));
+                        client.player.sendOverlayMessage(ArdaniaI18n.translate("message.ardania_hud.toggled_off"));
                     }
                 } else {
                     if (!config.enabled) {
@@ -100,7 +104,7 @@ public final class ArdaniaClientMod implements ClientModInitializer {
                     }
                     state.notifyStatUpdated();
                     if (client.player != null) {
-                        client.player.sendOverlayMessage(Component.translatable("message.ardania_hud.toggled_on"));
+                        client.player.sendOverlayMessage(ArdaniaI18n.translate("message.ardania_hud.toggled_on"));
                     }
                 }
             }

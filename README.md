@@ -12,15 +12,16 @@
 <p align="center">
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
-  <a href="#konfiguration--modmenu">Konfiguration</a> •
+  <a href="#konfiguration">Konfiguration</a> •
   <a href="#steuerung">Steuerung</a> •
-  <a href="#technische-architektur">Architektur</a> •
+  <a href="#architektur">Architektur</a> •
   <a href="#bauen">Bauen</a> •
   <a href="#lizenz">Lizenz</a>
 </p>
 
 ---
 
+<a id="features"></a>
 ## ✨ Features
 
 * 💰 **Euronen (Geldanzeige)**:
@@ -39,6 +40,12 @@
   * **Maximalstufe (Level 30)** wird hervorgehoben als `[MAX]` in Gold dargestellt (`Mobhunter [MAX]`).
   * Erkennt auch Server-Ausgaben wie `Max   Level 30 for <Beruf>` und Unicode-Balken (`▏`, `│`).
   * Löst bei Job-Aufstiegen oder Jobwechseln (`[ArdaniaJobs]`) automatisch einen stillen Hintergrundabgleich aus.
+* 💾 **Lokaler Zustands-Cache (Offline-/Subserver-Fallback)**:
+  * Speichert den jeweils letzten bekannten Stand für Euronen, ArdaPoints, Spielzeit und Berufe automatisch sowie beim Verlassen des Servers in `.minecraft/config/ardania_hud_cache.json`.
+  * Sind auf bestimmten Unterservern (z. B. Nether / `Mine`, `Creative` oder `Eventserver`) einzelne Befehle wie `/jobs stats` oder `/ardapoints me` nicht ausführbar, greift das HUD für diese Teilbereiche nahtlos auf den zuletzt gespeicherten Stand zurück, statt `?` anzuzeigen.
+* 🌍 **Mehrsprachigkeit / Lokalisierung (DE, EN, ES, FR)**:
+  * Vollständige Übersetzung von HUD-Labels, Statusmeldungen, Tastenbelegungen und ModMenu-Einstellungen in **Deutsch (`de_de`)**, **Englisch (`en_us`)**, **Spanisch (`es_es`)** und **Französisch (`fr_fr`)**.
+  * Unterstützt sowohl die automatische Erkennung der Minecraft-Clientsprache als auch eine direkte Sprachauswahl im Ingame-Konfigurationsmenü.
 * 🎬 **Auto-Hide mit Slide-Animation & Tab-Overlay**:
   * Optionales automatisches Ein- und Ausblenden über eine weiche **Smoothstep-Slide-Animation**.
   * Fährt bei Status-Aktualisierungen (außer reiner Spielzeit) sanft ins Bild und nach der eingestellten Dauer wieder heraus.
@@ -58,24 +65,33 @@
 
 ---
 
+<a id="installation"></a>
 ## 📥 Installation
 
 1. Installiere den [Fabric Loader](https://fabricmc.net/use/) für deine Minecraft-Version (**1.21.X**, **26.2** oder **26.3**).
 2. Installiere die [Fabric API](https://modrinth.com/mod/fabric-api) in deinen `mods`-Ordner.
 3. *(Empfohlen)* Installiere [ModMenu](https://modrinth.com/mod/modmenu), um alle Einstellungen bequem im Spiel anpassen zu können.
 4. Lade die passende `ardania-info-hud-*.jar` herunter und lege sie in deinen `.minecraft/mods`-Ordner:
-   * **Minecraft 1.21.X (1.21 – 1.21.11)**: `ardania-info-hud-mc1.21.x-1.4.0.jar`
-   * **Minecraft 26.3**: `ardania-info-hud-mc26.3-1.4.0.jar`
-   * **Minecraft 26.2**: `ardania-info-hud-mc26.2-1.4.0.jar`
+   * **Minecraft 1.21.X (1.21 – 1.21.11)**: `ardania-info-hud-mc1.21.x-1.5.0.jar`
+   * **Minecraft 26.3**: `ardania-info-hud-mc26.3-1.5.0.jar`
+   * **Minecraft 26.2**: `ardania-info-hud-mc26.2-1.5.0.jar`
 
 ---
 
+<a id="konfiguration"></a>
+<a id="konfiguration--modmenu"></a>
 ## ⚙️ Konfiguration & ModMenu
 
 Die Mod bietet ein vollständiges Ingame-Einstellungsmenü über **ModMenu** (oder per Datei unter `.minecraft/config/ardania_hud.json`).
 
 ### Einstellungsoptionen:
 * **HUD aktivieren**: Schaltet das Overlay an oder aus.
+* **Sprache**:
+  * `Automatisch (Client)` *(Standard – nutzt die eingestellte Minecraft-Sprache)*
+  * `Deutsch`
+  * `English`
+  * `Español`
+  * `Français`
 * **Position**:
   * `Rechts Mitte (Hypixel)` *(Standard - mittig am rechten Rand)*
   * `Oben Rechts`
@@ -97,14 +113,17 @@ Die Mod bietet ein vollständiges Ingame-Einstellungsmenü über **ModMenu** (od
 
 ---
 
+<a id="steuerung"></a>
 ## 🎮 Steuerung
 
 * **Taste `J`** *(Standard)*: Führt einen sofortigen, leisen Komplettabgleich aller Werte mit dem Server durch (`/geld`, `/ardapoints me`, `/jobs stats`, `/ontime`).
 * **HUD ein-/ausblenden** *(Optional)*: Frei belegbare Taste zum Umschalten der HUD-Sichtbarkeit. Ist das HUD per Auto-Hide ausgefahren, genügt ein Tastendruck, um es sofort wieder einzublenden.
-* **Tastenbelegung anpassen**: Beide Tasten können im Vanilla-Menü unter **Optionen $\rightarrow$ Steuerung $\rightarrow$ Tastenbelegung** in der Kategorie *Ardania Info HUD* frei angepasst werden.
+* **Tastenbelegung anpassen**: Beide Tasten können im Vanilla-Menü unter **Optionen → Steuerung → Tastenbelegung** in der Kategorie *Ardania Info HUD* frei angepasst werden.
 
 ---
 
+<a id="architektur"></a>
+<a id="technische-architektur"></a>
 ## 🏗️ Technische Architektur
 
 Das Projekt ist strikt modular nach Clean-Code-Prinzipien aufgebaut und teilt seine Kernlogik über alle Minecraft-Versionen:
@@ -113,7 +132,8 @@ Das Projekt ist strikt modular nach Clean-Code-Prinzipien aufgebaut und teilt se
 src/
 ├── main/java/de/ardania/hud/
 │   ├── ArdaniaConfig.java          # Persistent JSON-Konfigurationsverwaltung & Validierung
-│   ├── ArdaniaState.java           # Thread-sicherer Zustands- und Datenspeicher
+│   ├── ArdaniaI18n.java            # Mehrsprachige Lokalisierung (DE, EN, ES, FR & Client-Auto-Erkennung)
+│   ├── ArdaniaState.java           # Thread-sicherer Datenspeicher & JSON-Zustands-Cache
 │   ├── ArdaniaMessageParser.java   # Regex-Parsing von Chat, Actionbar, Jobs (inkl. MAX) & Ontime
 │   ├── ArdaniaChatListener.java    # Stille Nachrichtenabfangung & Event-Trigger
 │   ├── ArdaniaSyncManager.java     # Anti-Spam Queue, Cooldowns & Request-Scheduler
@@ -129,6 +149,7 @@ src/
 
 ---
 
+<a id="bauen"></a>
 ## 🔨 Projekt selbst bauen
 
 Voraussetzung: **JDK 21 oder neuer** (für Minecraft 1.21.X) bzw. **JDK 25 oder neuer** (für Minecraft 26.X).
@@ -153,6 +174,7 @@ Die fertigen JAR-Dateien liegen nach dem Build unter:
 
 ---
 
+<a id="lizenz"></a>
 ## 📄 Lizenz
 
 Dieses Projekt steht unter der [CC0 1.0 Universal Lizenz](LICENSE) und kann frei verwendet, modifiziert und geteilt werden.

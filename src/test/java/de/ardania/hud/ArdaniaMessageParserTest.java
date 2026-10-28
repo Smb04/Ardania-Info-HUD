@@ -2,10 +2,12 @@ package de.ardania.hud;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -182,6 +184,9 @@ class ArdaniaMessageParserTest {
     void ardapointsErrorSuppressed() {
         assertTrue(parser.isUnknownCommandError("ardapoints me ist kein gueltiger Befehl"));
         assertTrue(parser.isUnknownCommandError("[Ardania] Fehler: Der Befehl /ardapoints existiert hier nicht"));
+        assertTrue(parser.isUnknownCommandError("Du kannst diesen befehl in dieser Welt nicht benutzen"));
+        assertTrue(parser.isUnknownCommandError("Du kannst diesen Befehl in dieser Welt nicht benutzen."));
+        assertTrue(parser.isUnknownCommandError("\u00A7cDu kannst diesen Befehl in dieser Welt nicht benutzen!"));
     }
 
     @Test
@@ -315,5 +320,76 @@ class ArdaniaMessageParserTest {
             assertTrue(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, pressStart + durationMs - 1L, durationMs));
             assertFalse(ArdaniaHudRenderer.isTabDisplayActive(true, false, pressStart, pressStart + durationMs + 1L, durationMs));
         }
+    }
+
+    @Test
+    void stateCachePersistenceAndPartialFallback(@TempDir Path tempDir) {
+        Path cacheFile = tempDir.resolve("ardania_hud_cache.json");
+
+        state.setEuronen(new BigDecimal("46571.90"));
+        state.setArdaPoints(4987745);
+        state.addOrUpdateJob("Mobhunter", 30, true);
+        state.addOrUpdateJob("Miner", 28, false);
+        state.updateServerPlaytime("Hauptserver", 10, 5, 30);
+        state.updateServerPlaytime("Mine", 1, 2, 15);
+        state.saveCache(cacheFile);
+
+        ArdaniaState loadedState = new ArdaniaState();
+        ArdaniaMessageParser loadedParser = new ArdaniaMessageParser(loadedState);
+        loadedState.loadCache(cacheFile);
+
+        assertTrue(loadedState.isEuronenKnown());
+        assertEquals(new BigDecimal("46571.90"), loadedState.getEuronen());
+        assertTrue(loadedState.isArdaPointsKnown());
+        assertEquals(4987745, loadedState.getArdaPoints());
+        assertTrue(loadedState.isPlaytimeKnown());
+        assertEquals("11d 7h 45m", loadedState.getFormattedPlaytime());
+
+        List<ArdaniaState.JobEntry> jobs = loadedState.getJobs();
+        assertEquals(2, jobs.size());
+        assertEquals("Mobhunter", jobs.get(0).name());
+        assertTrue(jobs.get(0).isMax());
+        assertEquals("MAX", jobs.get(0).displayLevel());
+        assertEquals("Miner", jobs.get(1).name());
+        assertEquals("28", jobs.get(1).displayLevel());
+
+        // Wenn auf einem Unterserver (z. B. Mine/Nether) nur /geld verfuegbar ist,
+        // bleiben die zwischengespeicherten Jobs, ArdaPoints und Spielzeiten erhalten:
+        assertTrue(loadedParser.parse("[ArdaBank] Dein Kontostand: 47.000,00 Euronen", false));
+        assertFalse(loadedParser.parse("Unbekannter Befehl.", false));
+        assertEquals(new BigDecimal("47000.00"), loadedState.getEuronen());
+        assertEquals(4987745, loadedState.getArdaPoints());
+        assertEquals(2, loadedState.getJobs().size());
+        assertEquals("11d 7h 45m", loadedState.getFormattedPlaytime());
+    }
+
+    @Test
+    void localizationSupportsGermanEnglishSpanishAndFrench() {
+        var deMap = ArdaniaI18n.getLanguageMap(ArdaniaConfig.HudLanguage.DE_DE);
+        var enMap = ArdaniaI18n.getLanguageMap(ArdaniaConfig.HudLanguage.EN_US);
+        var esMap = ArdaniaI18n.getLanguageMap(ArdaniaConfig.HudLanguage.ES_ES);
+        var frMap = ArdaniaI18n.getLanguageMap(ArdaniaConfig.HudLanguage.FR_FR);
+
+        assertFalse(deMap.isEmpty());
+        assertEquals(deMap.keySet(), enMap.keySet());
+        assertEquals(deMap.keySet(), esMap.keySet());
+        assertEquals(deMap.keySet(), frMap.keySet());
+
+        assertEquals("Spielzeit", ArdaniaI18n.getString(ArdaniaConfig.HudLanguage.DE_DE, "hud.ardania_hud.playtime"));
+        assertEquals("Playtime", ArdaniaI18n.getString(ArdaniaConfig.HudLanguage.EN_US, "hud.ardania_hud.playtime"));
+        assertEquals("Tiempo de juego", ArdaniaI18n.getString(ArdaniaConfig.HudLanguage.ES_ES, "hud.ardania_hud.playtime"));
+        assertEquals("Temps de jeu", ArdaniaI18n.getString(ArdaniaConfig.HudLanguage.FR_FR, "hud.ardania_hud.playtime"));
+
+        assertEquals("Job", ArdaniaI18n.getString(ArdaniaConfig.HudLanguage.DE_DE, "hud.ardania_hud.job"));
+        assertEquals("Job", ArdaniaI18n.getString(ArdaniaConfig.HudLanguage.EN_US, "hud.ardania_hud.job"));
+        assertEquals("Trabajo", ArdaniaI18n.getString(ArdaniaConfig.HudLanguage.ES_ES, "hud.ardania_hud.job"));
+        assertEquals("M\u00E9tier", ArdaniaI18n.getString(ArdaniaConfig.HudLanguage.FR_FR, "hud.ardania_hud.job"));
+
+        assertEquals(ArdaniaConfig.HudLanguage.DE_DE, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.AUTO, "de_de"));
+        assertEquals(ArdaniaConfig.HudLanguage.DE_DE, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.AUTO, "de_at"));
+        assertEquals(ArdaniaConfig.HudLanguage.EN_US, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.AUTO, "en_gb"));
+        assertEquals(ArdaniaConfig.HudLanguage.ES_ES, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.AUTO, "es_mx"));
+        assertEquals(ArdaniaConfig.HudLanguage.FR_FR, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.AUTO, "fr_ca"));
+        assertEquals(ArdaniaConfig.HudLanguage.FR_FR, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.FR_FR, "de_de"));
     }
 }
