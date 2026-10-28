@@ -1,11 +1,32 @@
 plugins {
-	// Minecraft 26.x ist nicht mehr obfuskiert -> "net.fabricmc.fabric-loom" (ohne Remapping, Mojang-Namen)
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+	id 'fabric-loom' version "${loom_version}" apply false
 	id 'maven-publish'
 }
 
+def isMc121 = project.minecraft_version.toString().startsWith("1.21")
+apply plugin: isMc121 ? 'fabric-loom' : 'net.fabricmc.fabric-loom'
+
 base {
 	archivesName = project.archives_base_name
+}
+
+if (isMc121) {
+	def mainJavaPath = project.file('src/main/java').toPath()
+	sourceSets {
+		main {
+			java {
+				srcDirs = ['src/main/java', 'src/mc121/java']
+				exclude { details ->
+					def file = details.file
+					file.toPath().startsWith(mainJavaPath) &&
+						(file.name == 'ArdaniaClientMod.java' ||
+						 file.name == 'ArdaniaHudRenderer.java' ||
+						 file.name == 'ArdaniaConfigScreen.java')
+				}
+			}
+		}
+	}
 }
 
 repositories {
@@ -18,11 +39,17 @@ repositories {
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	// ModMenu API (compileOnly, damit die Mod auch ohne ModMenu startet)
-	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	if (isMc121) {
+		mappings loom.officialMojangMappings()
+		modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+		modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+		modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	} else {
+		implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+		implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+		compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	}
 
 	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
 	testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -31,23 +58,38 @@ dependencies {
 
 processResources {
 	def version = project.version
+	def loaderDep = isMc121 ? "0.16.0" : "0.19.5"
+	def mcDep = isMc121 ? ">=1.21 <=1.21.11" : ">=26.2 <=26.3"
+	def javaDep = isMc121 ? "21" : "25"
+
 	inputs.property "version", version
+	inputs.property "loader_dep", loaderDep
+	inputs.property "mc_dep", mcDep
+	inputs.property "java_dep", javaDep
 
 	filesMatching("fabric.mod.json") {
-		expand "version": version
+		expand(
+			"version": version,
+			"loader_dep": loaderDep,
+			"mc_dep": mcDep,
+			"java_dep": javaDep
+		)
 	}
 }
 
+def targetJavaVersion = isMc121 ? 21 : 25
+
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
+	it.options.release = targetJavaVersion
 	it.options.encoding = 'UTF-8'
 }
 
 java {
 	withSourcesJar()
 
-	sourceCompatibility = JavaVersion.VERSION_25
-	targetCompatibility = JavaVersion.VERSION_25
+	def javaVer = JavaVersion.toVersion(targetJavaVersion)
+	sourceCompatibility = javaVer
+	targetCompatibility = javaVer
 }
 
 test {
