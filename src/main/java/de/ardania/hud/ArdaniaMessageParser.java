@@ -48,7 +48,7 @@ public final class ArdaniaMessageParser {
             "(?iu)\\[ArdaniaJobs\\]");
 
     private static final Pattern JOBS_STATS_LINE = Pattern.compile(
-            "(?imu)^[|:;#=\\-\\s]*(?:(max)\\.?\\s+)?(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")(?:\\s*:.*|\\s*)$");
+            "(?imu)(?:[|:;#=\\-\\s]*)(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")\\s*(?::|$)");
 
     private static final Pattern JOB_PARENTHESIZED = Pattern.compile(
             "(?iu)(" + LETTERS + ")\\s*\\(\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)\\s*\\)");
@@ -199,8 +199,7 @@ public final class ArdaniaMessageParser {
 
         Matcher statsMatcher = JOBS_STATS_LINE.matcher(message);
         while (statsMatcher.find()) {
-            boolean explicitMax = statsMatcher.group(1) != null;
-            matched |= setJob(statsMatcher.group(3), statsMatcher.group(2), explicitMax);
+            matched |= setJob(statsMatcher.group(2), statsMatcher.group(1));
         }
         if (matched) {
             return true;
@@ -208,18 +207,18 @@ public final class ArdaniaMessageParser {
 
         Matcher m = JOB_PARENTHESIZED.matcher(message);
         if (m.find()) {
-            return setJob(m.group(1), m.group(2), false);
+            return setJob(m.group(1), m.group(2));
         }
 
         m = JOB_LABELED.matcher(message);
         if (m.find()) {
-            return setJob(m.group(1), m.group(2), false);
+            return setJob(m.group(1), m.group(2));
         }
 
         return false;
     }
 
-    private boolean setJob(String name, String levelOrMax, boolean explicitMax) {
+    private boolean setJob(String name, String levelOrMax) {
         if (name == null || name.isBlank() || levelOrMax == null) {
             return false;
         }
@@ -229,7 +228,7 @@ public final class ArdaniaMessageParser {
         }
         try {
             int level = Integer.parseInt(levelOrMax.trim());
-            this.state.addOrUpdateJob(name.trim(), level, explicitMax || level >= 30);
+            this.state.addOrUpdateJob(name.trim(), level, level >= 30);
             return true;
         } catch (NumberFormatException e) {
             return false;

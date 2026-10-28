@@ -214,8 +214,11 @@ class ArdaniaMessageParserTest {
     void parseMixedMaxAndNormalJobsFromTesterScreenshot() {
         parser.parse("[ArdaniaJobs] Spieler: Shadstorm", false);
         assertTrue(parser.parse("      Max   Level 30 for Mobhunter", false));
-        assertTrue(parser.parse("|||||||||||||||||||||||||||| Level 28 for Miner: 1461.84/2783xp", false));
-        assertTrue(parser.parse("|||||||||||||||||||||||||||| Level 23 for Hexenmeister: 500/2000xp", false));
+        assertTrue(parser.parse("\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F Level 28 for Miner: 1461.84/2783xp", false));
+        assertTrue(parser.parse("\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502 Level 23 for Hexenmeister: 500/2000xp", false));
+
+        assertTrue(parser.isSilentServerResponse("\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F\u258F Level 28 for Miner: 1461.84/2783xp"));
+        assertTrue(parser.isSilentServerResponse("\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502\u2502 Level 23 for Hexenmeister: 500/2000xp"));
 
         List<ArdaniaState.JobEntry> jobs = state.getJobs();
         assertEquals(3, jobs.size());
