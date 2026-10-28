@@ -37,9 +37,10 @@ public final class ArdaniaClientMod implements ClientModInitializer {
 
         new ArdaniaChatListener(new ArdaniaMessageParser(state)).register();
 
-        HudElementRegistry.addLast(id("info_hud"), new ArdaniaHudRenderer(state));
+        ArdaniaHudRenderer hudRenderer = new ArdaniaHudRenderer(state);
+        HudElementRegistry.addLast(id("info_hud"), hudRenderer);
 
-        registerKeybinds(state);
+        registerKeybinds(state, hudRenderer);
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (isOnArdania(client) && ArdaniaConfig.getInstance().autoSyncOnJoin) {
@@ -52,7 +53,7 @@ public final class ArdaniaClientMod implements ClientModInitializer {
         LOGGER.info("Ardania Info HUD geladen");
     }
 
-    private void registerKeybinds(ArdaniaState state) {
+    private void registerKeybinds(ArdaniaState state, ArdaniaHudRenderer hudRenderer) {
         KeyMapping.Category category = KeyMapping.Category.register(id("controls"));
 
         this.syncKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
@@ -80,14 +81,27 @@ public final class ArdaniaClientMod implements ClientModInitializer {
 
             while (this.toggleKey.consumeClick()) {
                 ArdaniaConfig config = ArdaniaConfig.getInstance();
-                config.enabled = !config.enabled;
-                ArdaniaConfig.save();
-                if (config.enabled) {
+                long now = System.currentTimeMillis();
+
+                if (hudRenderer.isShowing(now)) {
+                    if (config.autoHide) {
+                        state.hideHudNow();
+                    } else {
+                        config.enabled = false;
+                        ArdaniaConfig.save();
+                    }
+                    if (client.player != null) {
+                        client.player.sendOverlayMessage(Component.translatable("message.ardania_hud.toggled_off"));
+                    }
+                } else {
+                    if (!config.enabled) {
+                        config.enabled = true;
+                        ArdaniaConfig.save();
+                    }
                     state.notifyStatUpdated();
-                }
-                if (client.player != null) {
-                    String msgKey = config.enabled ? "message.ardania_hud.toggled_on" : "message.ardania_hud.toggled_off";
-                    client.player.sendOverlayMessage(Component.translatable(msgKey));
+                    if (client.player != null) {
+                        client.player.sendOverlayMessage(Component.translatable("message.ardania_hud.toggled_on"));
+                    }
                 }
             }
         });

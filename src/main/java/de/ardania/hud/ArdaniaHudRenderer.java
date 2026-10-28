@@ -38,7 +38,7 @@ public final class ArdaniaHudRenderer implements HudElement {
         Minecraft client = Minecraft.getInstance();
         ArdaniaConfig config = ArdaniaConfig.getInstance();
 
-        if (!config.enabled || client.gui.hud.isHidden() || client.player == null || !ArdaniaClientMod.isOnArdania(client)) {
+        if (client.gui.hud.isHidden() || client.player == null || !ArdaniaClientMod.isOnArdania(client)) {
             this.slideProgress = 0.0f;
             this.lastFrameTime = -1;
             this.tabPressStartTime = -1;
@@ -49,7 +49,8 @@ public final class ArdaniaHudRenderer implements HudElement {
         long now = System.currentTimeMillis();
         long displayDurationMs = Math.max(1, config.autoHideDurationSeconds) * 1000L;
 
-        boolean tabDown = config.showOnTab
+        boolean tabDown = config.enabled
+                && config.showOnTab
                 && client.options != null
                 && client.options.keyPlayerList != null
                 && client.options.keyPlayerList.isDown();
@@ -63,14 +64,19 @@ public final class ArdaniaHudRenderer implements HudElement {
             this.tabWasDown = false;
         }
 
+        if (this.state.getLastManualHideTimestamp() > this.tabPressStartTime) {
+            this.tabPressStartTime = -1;
+        }
+
         boolean tabActive = isTabDisplayActive(config.showOnTab, tabDown, this.tabPressStartTime, now, displayDurationMs);
 
         float targetProgress;
-        if (!config.autoHide) {
+        if (!config.enabled) {
+            targetProgress = 0.0f;
+        } else if (!config.autoHide) {
             targetProgress = 1.0f;
         } else {
-            long lastUpdate = this.state.getLastNonPlaytimeUpdateTimestamp();
-            boolean statUpdatedRecently = lastUpdate > 0 && (now - lastUpdate < displayDurationMs);
+            boolean statUpdatedRecently = this.state.isAutoHideActive(now, displayDurationMs);
             targetProgress = (statUpdatedRecently || tabActive) ? 1.0f : 0.0f;
         }
 
@@ -171,6 +177,19 @@ public final class ArdaniaHudRenderer implements HudElement {
         }
 
         return lines;
+    }
+
+    public boolean isShowing(long now) {
+        ArdaniaConfig config = ArdaniaConfig.getInstance();
+        if (!config.enabled) {
+            return false;
+        }
+        if (!config.autoHide) {
+            return true;
+        }
+        long displayDurationMs = Math.max(1, config.autoHideDurationSeconds) * 1000L;
+        boolean tabActive = isTabDisplayActive(config.showOnTab, this.tabWasDown, this.tabPressStartTime, now, displayDurationMs);
+        return this.state.isAutoHideActive(now, displayDurationMs) || tabActive;
     }
 
     public static boolean isTabDisplayActive(boolean showOnTab, boolean tabDown, long tabPressStartTime, long now, long displayDurationMs) {

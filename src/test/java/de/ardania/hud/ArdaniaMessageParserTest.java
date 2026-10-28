@@ -187,14 +187,16 @@ class ArdaniaMessageParserTest {
     @Test
     void parseJobWithMaxLevel() {
         state.clearJobs();
-        assertTrue(parser.parse("|||||||||||||||||||||||||||| MAX for Mobhunter: 3120/3120xp", false));
+        assertTrue(parser.parse("      Max   Level 30 for Mobhunter", false));
+        assertTrue(parser.parse("\u00A7a      Max   \u00A77Level \u00A7f30 \u00A77for \u00A7fHandwerker", false));
+        assertTrue(parser.parse("|||||||||||||||||||||||||||| MAX for Schaufler: 3120/3120xp", false));
         assertTrue(parser.parse("|||||||||||||||||||||||||||| Level MAX for Miner: 3120/3120xp", false));
         assertTrue(parser.parse("|||||||||||||||||||||||||||| Level 30 for Farmer: 3120/3120xp", false));
         assertTrue(parser.parse("|||||||||||||||||||||||||||| Stufe MAX f\u00FCr Holzf\u00E4ller: 3120/3120xp", false));
         assertTrue(parser.parse("Job: Fischer - MAX", false));
 
         List<ArdaniaState.JobEntry> jobs = state.getJobs();
-        assertEquals(5, jobs.size());
+        assertEquals(7, jobs.size());
 
         for (ArdaniaState.JobEntry j : jobs) {
             assertTrue(j.isMax(), "Job " + j.name() + " should be MAX");
@@ -202,8 +204,52 @@ class ArdaniaMessageParserTest {
             assertEquals("MAX", j.displayLevel(), "Job " + j.name() + " displayLevel should be MAX");
         }
 
+        assertTrue(parser.isSilentServerResponse("      Max   Level 30 for Mobhunter"));
+        assertTrue(parser.isSilentServerResponse("\u00A7a      Max   \u00A77Level \u00A7f30 \u00A77for \u00A7fMobhunter"));
         assertTrue(parser.isSilentServerResponse("|||||||||||||||||||||||||||| MAX for Mobhunter: 3120/3120xp"));
         assertTrue(parser.isSilentServerResponse("|||||||||||||||||||||||||||| Level MAX for Miner: 3120/3120xp"));
+    }
+
+    @Test
+    void parseMixedMaxAndNormalJobsFromTesterScreenshot() {
+        parser.parse("[ArdaniaJobs] Spieler: Shadstorm", false);
+        assertTrue(parser.parse("      Max   Level 30 for Mobhunter", false));
+        assertTrue(parser.parse("|||||||||||||||||||||||||||| Level 28 for Miner: 1461.84/2783xp", false));
+        assertTrue(parser.parse("|||||||||||||||||||||||||||| Level 23 for Hexenmeister: 500/2000xp", false));
+
+        List<ArdaniaState.JobEntry> jobs = state.getJobs();
+        assertEquals(3, jobs.size());
+
+        assertEquals("Mobhunter", jobs.get(0).name());
+        assertTrue(jobs.get(0).isMax());
+        assertEquals("MAX", jobs.get(0).displayLevel());
+
+        assertEquals("Miner", jobs.get(1).name());
+        assertFalse(jobs.get(1).isMax());
+        assertEquals("28", jobs.get(1).displayLevel());
+
+        assertEquals("Hexenmeister", jobs.get(2).name());
+        assertFalse(jobs.get(2).isMax());
+        assertEquals("23", jobs.get(2).displayLevel());
+    }
+
+    @Test
+    void autoHideAndManualHideStateTransitions() {
+        state.reset();
+        long durationMs = 5000L;
+
+        state.notifyStatUpdated();
+        long now = System.currentTimeMillis();
+        assertTrue(state.isAutoHideActive(now, durationMs));
+
+        // Nach Ablauf der Anzeigedauer gilt das HUD als ausgeblendet
+        assertFalse(state.isAutoHideActive(now + 5001L, durationMs));
+
+        // Manuelles Ausblenden während der Anzeigezeit beendet die Sichtbarkeit sofort
+        state.notifyStatUpdated();
+        assertTrue(state.isAutoHideActive(System.currentTimeMillis(), durationMs));
+        state.hideHudNow();
+        assertFalse(state.isAutoHideActive(System.currentTimeMillis(), durationMs));
     }
 
     @Test

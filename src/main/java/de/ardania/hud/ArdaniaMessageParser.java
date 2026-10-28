@@ -48,7 +48,7 @@ public final class ArdaniaMessageParser {
             "(?iu)\\[ArdaniaJobs\\]");
 
     private static final Pattern JOBS_STATS_LINE = Pattern.compile(
-            "(?iu)(?:[|:;#=\\-\\s]*)(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")\\s*:");
+            "(?imu)^[|:;#=\\-\\s]*(?:(max)\\.?\\s+)?(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")(?:\\s*:.*|\\s*)$");
 
     private static final Pattern JOB_PARENTHESIZED = Pattern.compile(
             "(?iu)(" + LETTERS + ")\\s*\\(\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)\\s*\\)");
@@ -191,30 +191,35 @@ public final class ArdaniaMessageParser {
     }
 
     private boolean parseJob(String message) {
+        boolean matched = false;
         if (JOBS_HEADER.matcher(message).find()) {
             this.state.clearJobs();
-            return true;
+            matched = true;
         }
 
         Matcher statsMatcher = JOBS_STATS_LINE.matcher(message);
-        if (statsMatcher.find()) {
-            return setJob(statsMatcher.group(2), statsMatcher.group(1));
+        while (statsMatcher.find()) {
+            boolean explicitMax = statsMatcher.group(1) != null;
+            matched |= setJob(statsMatcher.group(3), statsMatcher.group(2), explicitMax);
+        }
+        if (matched) {
+            return true;
         }
 
         Matcher m = JOB_PARENTHESIZED.matcher(message);
         if (m.find()) {
-            return setJob(m.group(1), m.group(2));
+            return setJob(m.group(1), m.group(2), false);
         }
 
         m = JOB_LABELED.matcher(message);
         if (m.find()) {
-            return setJob(m.group(1), m.group(2));
+            return setJob(m.group(1), m.group(2), false);
         }
 
         return false;
     }
 
-    private boolean setJob(String name, String levelOrMax) {
+    private boolean setJob(String name, String levelOrMax, boolean explicitMax) {
         if (name == null || name.isBlank() || levelOrMax == null) {
             return false;
         }
@@ -224,7 +229,7 @@ public final class ArdaniaMessageParser {
         }
         try {
             int level = Integer.parseInt(levelOrMax.trim());
-            this.state.addOrUpdateJob(name.trim(), level, level >= 30);
+            this.state.addOrUpdateJob(name.trim(), level, explicitMax || level >= 30);
             return true;
         } catch (NumberFormatException e) {
             return false;
