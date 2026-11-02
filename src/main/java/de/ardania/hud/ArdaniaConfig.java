@@ -22,7 +22,14 @@ public final class ArdaniaConfig {
     public enum HudPosition {
         MIDDLE_RIGHT,
         TOP_RIGHT,
-        BOTTOM_RIGHT
+        BOTTOM_RIGHT,
+        MIDDLE_LEFT,
+        TOP_LEFT,
+        BOTTOM_LEFT;
+
+        public boolean isLeft() {
+            return this == MIDDLE_LEFT || this == TOP_LEFT || this == BOTTOM_LEFT;
+        }
     }
 
     public enum HudLanguage {
@@ -39,7 +46,14 @@ public final class ArdaniaConfig {
     public boolean showMoney = true;
     public boolean showPoints = true;
     public boolean showPlaytime = true;
+    public boolean showSessionTimer = false;
     public boolean showJobs = true;
+
+    public boolean combinePlaytime = true;
+    public boolean playtimeHauptserver = true;
+    public boolean playtimeCreative = true;
+    public boolean playtimeEventserver = true;
+    public boolean playtimeMine = true;
 
     public boolean autoHide = false;
     public int autoHideDurationSeconds = 5;

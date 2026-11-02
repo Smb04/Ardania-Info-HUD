@@ -12,6 +12,8 @@ public final class ArdaniaMessageParser {
 
     private static final Pattern LEGACY_FORMATTING = Pattern.compile("\u00A7[0-9A-FK-ORXa-fk-orx]");
 
+    private static final Pattern TAB_SERVER_TAG = Pattern.compile("(?<![\\p{L}\\d])\\[([HFMEC])\\](?![\\p{L}\\d])");
+
     private static final Pattern ABSOLUTE_BALANCE = Pattern.compile(
             "(?iu)(?:\\[ArdaBank\\]\\s*)?(?:Dein\\s+)?(?:Kontostand|Guthaben|Geld|Konto|Verm\u00F6gen|Balance)\\s*:?\\s*" + NUMBER + "\\s*" + CURRENCY);
 
@@ -30,16 +32,16 @@ public final class ArdaniaMessageParser {
     private static final String POINTS_CURRENCY = "(?:Arda(?:nia)?[\\s-]?Points?|Punkte)";
 
     private static final Pattern ARDAPOINTS_BESITZ = Pattern.compile(
-            "(?iu)(?:\\[ArdaniaPoints\\]\\s*)?(?:Du\\s+besitzt|Deine\\s+Arda(?:nia)?Points?:?)\\s*([0-9.,]+)\\s*" + POINTS_CURRENCY);
+            "(?iu)(?:\\[Arda(?:nia)?Points\\]\\s*)?(?:Du\\s+besitzt(?:\\s+aktuell|\\s+derzeit)?\\s*:?|Deine?\\s+(?:Arda(?:nia)?Points?|Punktestand)\\s*:?)\\s*([0-9.,]+)(?:\\s*" + POINTS_CURRENCY + ")?");
 
     private static final Pattern ARDAPOINTS_RECEIVED = Pattern.compile(
-            "(?iu)(?:Du\\s+hast|Erhalten:?|Belohnung:?|Vote:?)\\s*.*?([0-9.,]+)\\s*" + POINTS_CURRENCY + "\\s*(?:erhalten|bekommen|gutgeschrieben)?");
+            "(?iu)(?:(?:Du\\s+(?:hast|erh\u00E4ltst|erhaeltst|bekommst)|(?:erh\u00E4ltst|erhaeltst|bekommst)\\s+du|Dir\\s+wurden|(?:Jeder|Alle)(?:\\s+Spieler)?\\s+(?:erh\u00E4lt|erhaelt|erhalten|bekommt|bekommen)|Erhalten:?|Belohnung:?|Vote(?:-?ziels?)?).*?([0-9.,]+)\\s*" + POINTS_CURRENCY + "|([0-9.,]+)\\s*" + POINTS_CURRENCY + "\\s+(?:erhalten|bekommen|gutgeschrieben|gewonnen))");
 
     private static final Pattern ARDAPOINTS_INCREMENT = Pattern.compile(
-            "(?iu)(?<![\\p{L}\\d])\\+([0-9.,]+)\\s*" + POINTS_CURRENCY);
+            "(?iu)(?<![\\p{L}\\d])\\+\\s*([0-9.,]+)\\s*" + POINTS_CURRENCY);
 
-    private static final Pattern ARDAPOINTS_ABSOLUTE = Pattern.compile(
-            "(?iu)" + POINTS_CURRENCY + "\\s*:?\\s*([0-9.,]+)");
+    private static final Pattern VOTE_GOAL_NOTIFICATION = Pattern.compile(
+            "(?iu)(?:Vote\\s*-?\\s*ziel|VoteParty|Community\\s*-?\\s*ziel|Danke\\s+f(?:\u00FC|ue)rs\\s+Voten)");
 
     private static final Pattern JOBS_HEADER = Pattern.compile(
             "(?iu)\\[ArdaniaJobs\\]\\s+Spieler:");
@@ -57,7 +59,7 @@ public final class ArdaniaMessageParser {
             "(?iu)(?:Job|Beruf)\\s*:\\s*(" + LETTERS + ")\\s*[-:|]?\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)");
 
     private static final Pattern UNKNOWN_COMMAND_ERROR = Pattern.compile(
-            "(?iu)(?:Unknown\\s+command|Unbekannter\\s+Befehl|Befehl\\s+(?:wurde\\s+)?nicht\\s+gefunden|command\\s+does\\s+not\\s+exist|Dieser\\s+Befehl\\s+existiert\\s+nicht|Befehl\\s+unbekannt|An\\s+error\\s+occurred\\s+while\\s+executing|Konnte\\s+Befehl\\s+nicht|ardapoints|ardaniapoints|\\[ardania\\]\\s*fehler|fehler:\\s*der\\s*befehl|diesen\\s+befehl\\s+(?:in\\s+dieser\\s+welt\\s+|hier\\s+|auf\\s+diesem\\s+server\\s+)?nicht\\s+(?:benutzen|verwenden|ausf\u00FChren|ausfuehren|nutzen)|in\\s+dieser\\s+welt\\s+nicht\\s+(?:benutzen|verwenden|erlaubt|verf\u00FCgbar|verfuegbar))");
+            "(?iu)(?:Unknown\\s+(?:or\\s+incomplete\\s+)?command|Unbekannter\\s+(?:oder\\s+unvollst(?:\u00E4|ae)ndiger\\s+)?Befehl|Befehl\\s+unbekannt|See\\s+below\\s+for\\s+error|Siehe\\s+unten\\s+f(?:\u00FC|ue)r|Comando\\s+desconocido|Commande\\s+inconnue|<--\\[[^\\]]+\\]|(?:^|\\s)(?:geld|money|ardapoints(?:\\s+me)?|jobs(?:\\s+stats)?|ontime)<--|command\\s+does\\s+not\\s+exist|An\\s+error\\s+occurred\\s+while\\s+executing|befehle?\\b.*\\bnicht\\b|\\bnicht\\b.*\\bbefehle?\\b|dieser\\s+welt\\s+nicht|diesem\\s+server\\s+nicht|hier\\s+nicht\\s+(?:benutzen|verwenden|nutzen|erlaubt|verf\u00FCgbar|verfuegbar|m\u00F6glich|moeglich|ausf\u00FChren|ausfuehren)|keine\\s+(?:berechtigung|rechte)|no\\s+permission|ardapoints\\s+me|\\[ardania\\]\\s*fehler|fehler:\\s*der\\s*befehl)");
 
     private static final Pattern ONTIME_SERVER_LINE = Pattern.compile(
             "(?iu)(?:^|\\n|\\r|\\s*)([\\p{L}\\-]+):\\s*(?:(\\d+)\\s*Tage?)?\\s*(?:(\\d+)\\s*Stunden?)?\\s*(?:(\\d+)\\s*Minute(?:n)?)?");
@@ -84,6 +86,18 @@ public final class ArdaniaMessageParser {
         return changed;
     }
 
+    public static String extractTabServerTag(String rawTabEntry) {
+        if (rawTabEntry == null || rawTabEntry.isBlank()) {
+            return null;
+        }
+        String clean = normalize(rawTabEntry);
+        Matcher m = TAB_SERVER_TAG.matcher(clean);
+        if (m.find()) {
+            return m.group(1);
+        }
+        return null;
+    }
+
     public boolean isSilentServerResponse(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         String m = normalize(rawMessage);
@@ -95,9 +109,41 @@ public final class ArdaniaMessageParser {
                 || ONTIME_LINE_SUPPRESS.matcher(m).find();
     }
 
+    public boolean isMoneyBalanceResponse(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return false;
+        return ABSOLUTE_BALANCE.matcher(normalize(rawMessage)).find();
+    }
+
+    public boolean isPointsBalanceResponse(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return false;
+        return ARDAPOINTS_BESITZ.matcher(normalize(rawMessage)).find();
+    }
+
+    public boolean isJobsStatsResponse(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return false;
+        String m = normalize(rawMessage);
+        return JOBS_HEADER.matcher(m).find() || JOBS_STATS_LINE.matcher(m).find();
+    }
+
+    public boolean isOntimeResponse(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return false;
+        return ONTIME_LINE_SUPPRESS.matcher(normalize(rawMessage)).find();
+    }
+
     public boolean isUnknownCommandError(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         return UNKNOWN_COMMAND_ERROR.matcher(normalize(rawMessage)).find();
+    }
+
+    public String extractFailedCommandFromContext(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return null;
+        String m = normalize(rawMessage).toLowerCase(java.util.Locale.ROOT);
+        if (!m.contains("<--")) return null;
+        if (m.contains("geld")) return "geld";
+        if (m.contains("jobs")) return "jobs stats";
+        if (m.contains("ardapoints")) return "ardapoints me";
+        if (m.contains("ontime")) return "ontime";
+        return null;
     }
 
     public boolean isActionBarIncome(String rawMessage) {
@@ -111,6 +157,11 @@ public final class ArdaniaMessageParser {
         return JOBS_NOTIFICATION.matcher(m).find()
                 && !JOBS_HEADER.matcher(m).find()
                 && !JOBS_STATS_LINE.matcher(m).find();
+    }
+
+    public boolean isVoteNotification(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return false;
+        return VOTE_GOAL_NOTIFICATION.matcher(normalize(rawMessage)).find();
     }
 
     private boolean parseMoney(String message) {
@@ -158,21 +209,16 @@ public final class ArdaniaMessageParser {
             return true;
         }
 
-        Matcher rec = ARDAPOINTS_RECEIVED.matcher(message);
-        if (rec.find()) {
-            this.state.addArdaPoints(parsePoints(rec.group(1)));
-            return true;
-        }
-
         Matcher inc = ARDAPOINTS_INCREMENT.matcher(message);
         if (inc.find()) {
             this.state.addArdaPoints(parsePoints(inc.group(1)));
             return true;
         }
 
-        Matcher abs = ARDAPOINTS_ABSOLUTE.matcher(message);
-        if (abs.find()) {
-            this.state.setArdaPoints(parsePoints(abs.group(1)));
+        Matcher rec = ARDAPOINTS_RECEIVED.matcher(message);
+        if (rec.find()) {
+            String rawPoints = rec.group(1) != null ? rec.group(1) : rec.group(2);
+            this.state.addArdaPoints(parsePoints(rawPoints));
             return true;
         }
 

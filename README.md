@@ -1,4 +1,4 @@
-# Ardania Info HUD
+# Ardania Info HUD 1.7
 
 <p align="center">
   <img src="src/main/resources/assets/ardania_hud/icon.png" alt="Ardania Info HUD Logo" width="128" height="128"/>
@@ -22,27 +22,35 @@
 ---
 
 <a id="features"></a>
-## ✨ Features
+## ✨ Features in Version 1.7
 
 * 💰 **Euronen (Geldanzeige)**:
   * Ruft deinen tatsächlichen Kontostand direkt über die `[ArdaBank]` ab.
   * Reagiert auf Job-Einnahmen (`+0.15$`, `+0,02 Euronen`) und passt das Guthaben automatisch an.
   * Erfasst direkte Buchungsmitteilungen der ArdaBank (Überweisungen, Käufe, Zinsen) ohne Verzögerung.
-* 💠 **ArdaPoints**:
+* 💠 **ArdaPoints & Voteziel-Erkennung**:
   * Zeigt deine aktuellen ArdaPoints / ArdaniaPoints in Echtzeit an.
-  * Unterstützt automatische Erfassung von Daily-Rewards, monatlichen Belohnungen und Server-Vote-Gutschriften (`+25 ArdaPoints`).
-* ⏳ **Multi-Server Spielzeittracking (Ontime)**:
-  * Summiert die Spielzeiten aller Ardania-Welten (`Hauptserver`, `Mine` / Nether, `Creative`, `Eventserver`) zu einer exakten Gesamtrechenzeit zusammen.
-  * Zählt die Online-Minuten lokal mit und gleicht sie stündlich im Hintergrund ab.
-* ⛏️ **Multi-Job, Joblevel & MAX-Stufe**:
+  * Unterstützt automatische Erfassung von Daily-Rewards, monatlichen Belohnungen, Server-Votes sowie dem **Voteziel** (`+25 ArdaPoints`, `Voteziel erreicht` inkl. automatischem Hintergrund-Abgleich).
+* ⏳ **Multi-Server Spielzeittracking (Ontime) & Session-Timer**:
+  * Erfasst die Spielzeiten aller Ardania-Welten (`Hauptserver`, `Creative`, `Eventserver`, `Mine` / Nether).
+  * **Frei konfigurierbar im ModMenu**: Wähle selbst aus, welche Welten berücksichtigt werden sollen und ob diese zu einer Gesamtsumme **zusammengerechnet** oder **einzeln pro Server** aufgelistet werden sollen.
+  * **Optionaler Session-Timer** *(standardmäßig deaktiviert)*: Zeigt dir auf Wunsch deine aktuelle Sitzungsdauer (`Xh Ym Zs`) seit dem Serverbeitritt an.
+* ⛏️ **Multi-Job, rechtsbündige Joblevel & MAX-Stufe**:
   * Erkennt automatisch alle deine aktiven Berufe aus `/jobs stats` (inklusive Fortschrittsbalken).
-  * Zeigt Berufsbezeichnung und Level übersichtlich an (z. B. `Mobhunter [24]`, `Farmer [12]`, `Miner [21]`).
+  * Zeigt Berufsbezeichnung links und das Level (`[24]`, `[12]`, `[MAX]`) **sauber rechtsbündig am Boxrand untereinander ausgerichtet** an.
   * **Maximalstufe (Level 30)** wird hervorgehoben als `[MAX]` in Gold dargestellt (`Mobhunter [MAX]`).
   * Erkennt auch Server-Ausgaben wie `Max   Level 30 for <Beruf>` und Unicode-Balken (`▏`, `│`).
   * Löst bei Job-Aufstiegen oder Jobwechseln (`[ArdaniaJobs]`) automatisch einen stillen Hintergrundabgleich aus.
+* 📍 **Flexible HUD-Positionen (Rechts & Links)**:
+  * Das Overlay kann sowohl auf der rechten Seite (`Rechts Mitte`, `Oben Rechts`, `Unten Rechts`) als auch auf der linken Seite (`Links Mitte`, `Oben Links`, `Unten Links`) platziert werden.
+  * Inklusive passgenauer, weicher Slide-Animation zur jeweiligen Bildschirmkante.
+* 🌐 **Servertyp-Erkennung (Tabliste & Command-Tree) & Subserver-Schutz**:
+  * Liest anhand der Tablisten-Kürzel (`[H]` für Hauptserver, `[C]` für Creative, `[M]` für Mine, `[E]` für Event, `[F]` für Fallback) sowie über den **Brigadier-Befehlsbaum des Servers** automatisch den aktuellen Servertyp aus.
+  * Unterscheidet Einzelbuchstaben-Tags zuverlässig von eckigen Gildentags (`[Bier]`, `[ARDA]`, etc.).
+  * Prüft vor dem Absenden jedes Befehls, ob dieser auf dem aktuellen Unterserver überhaupt im Befehlsbaum existiert, und verhindert nicht verfügbare Abfragen auf `Fallback`, `Mine` und `Creative`.
 * 💾 **Lokaler Zustands-Cache (Offline-/Subserver-Fallback)**:
   * Speichert den jeweils letzten bekannten Stand für Euronen, ArdaPoints, Spielzeit und Berufe automatisch sowie beim Verlassen des Servers in `.minecraft/config/ardania_hud_cache.json`.
-  * Sind auf bestimmten Unterservern (z. B. Nether / `Mine`, `Creative` oder `Eventserver`) einzelne Befehle wie `/jobs stats` oder `/ardapoints me` nicht ausführbar, greift das HUD für diese Teilbereiche nahtlos auf den zuletzt gespeicherten Stand zurück, statt `?` anzuzeigen.
+  * Sind auf bestimmten Unterservern (z. B. `Fallback`, `Mine` / Nether, `Creative` oder `Eventserver`) einzelne Befehle nicht ausführbar, greift das HUD für diese Teilbereiche nahtlos auf den zuletzt gespeicherten Stand zurück, statt `?` anzuzeigen.
 * 🌍 **Mehrsprachigkeit / Lokalisierung (DE, EN, ES, FR)**:
   * Vollständige Übersetzung von HUD-Labels, Statusmeldungen, Tastenbelegungen und ModMenu-Einstellungen in **Deutsch (`de_de`)**, **Englisch (`en_us`)**, **Spanisch (`es_es`)** und **Französisch (`fr_fr`)**.
   * Unterstützt sowohl die automatische Erkennung der Minecraft-Clientsprache als auch eine direkte Sprachauswahl im Ingame-Konfigurationsmenü.
@@ -52,8 +60,8 @@
   * **Tab-Taste**: Kann so eingestellt werden, dass das HUD beim Halten oder kurzen Antippen der Spielerliste eingeblendet wird.
   * Beim manuellen Deaktivieren gleitet das HUD ebenfalls sanft zur Seite heraus.
 * 🔕 **Intelligente Silent-Synchronisation & Chat-Filterung**:
-  * Alle automatischen Abfragen (`/geld`, `/ardapoints me`, `/jobs stats`, `/ontime`) werden **vollständig aus dem Chat ausgeblendet**.
-  * Fehlermeldungen bei Weltenwechseln (z. B. nicht vorhandene Befehle im Nether) werden automatisch abgefangen.
+  * Alle automatischen Abfragen (`/geld`, `/ardapoints me`, `/jobs stats`, `/ontime`) werden **vollständig aus dem Chat ausgeblendet** – keine Chat-Meldungen mehr beim Serverbeitritt oder periodischen Syncs!
+  * Fehlermeldungen bei Weltenwechseln oder auf dem Fallback-Server (sowohl Plugin-Meldungen wie *"Du kannst diesen Befehl in dieser Welt nicht benutzen"* als auch Brigadier-Fehler wie *"Unknown or incomplete command"* / `geld<--[HERE]`) werden auf allen Chatebenen (`ALLOW_GAME` und `ALLOW_CHAT`) automatisch abgefangen.
   * **Tippst du selbst einen Befehl im Chat ein**, wird die Antwort wie gewohnt ganz normal angezeigt!
 * 🛡️ **Anti-Flag & Rate-Limiting**:
   * Befehle werden niemals gleichzeitig im selben Server-Tick gesendet, sondern gestaffelt mit Pausen abgearbeitet.
@@ -71,10 +79,10 @@
 1. Installiere den [Fabric Loader](https://fabricmc.net/use/) für deine Minecraft-Version (**1.21.X**, **26.2** oder **26.3**).
 2. Installiere die [Fabric API](https://modrinth.com/mod/fabric-api) in deinen `mods`-Ordner.
 3. *(Empfohlen)* Installiere [ModMenu](https://modrinth.com/mod/modmenu), um alle Einstellungen bequem im Spiel anpassen zu können.
-4. Lade die passende `ardania-info-hud-*.jar` herunter und lege sie in deinen `.minecraft/mods`-Ordner:
-   * **Minecraft 1.21.X (1.21 – 1.21.11)**: `ardania-info-hud-mc1.21.x-1.5.0.jar`
-   * **Minecraft 26.3**: `ardania-info-hud-mc26.3-1.5.0.jar`
-   * **Minecraft 26.2**: `ardania-info-hud-mc26.2-1.5.0.jar`
+4. Lade die passende `ardania-info-hud-*.jar` für Version **1.7** herunter und lege sie in deinen `.minecraft/mods`-Ordner:
+   * **Minecraft 1.21.X (1.21 – 1.21.11)**: `ardania-info-hud-mc1.21.x-1.7.0.jar`
+   * **Minecraft 26.3**: `ardania-info-hud-mc26.3-1.7.0.jar`
+   * **Minecraft 26.2**: `ardania-info-hud-mc26.2-1.7.0.jar`
 
 ---
 
@@ -82,27 +90,27 @@
 <a id="konfiguration--modmenu"></a>
 ## ⚙️ Konfiguration & ModMenu
 
-Die Mod bietet ein vollständiges Ingame-Einstellungsmenü über **ModMenu** (oder per Datei unter `.minecraft/config/ardania_hud.json`).
+Die Mod bietet ein übersichtliches, in **3 Reiter (Tabs)** aufgeteiltes Ingame-Einstellungsmenü über **ModMenu** (oder per Datei unter `.minecraft/config/ardania_hud.json`).
 
 ### Einstellungsoptionen:
 * **HUD aktivieren**: Schaltet das Overlay an oder aus.
 * **Sprache**:
   * `Automatisch (Client)` *(Standard – nutzt die eingestellte Minecraft-Sprache)*
-  * `Deutsch`
-  * `English`
-  * `Español`
-  * `Français`
-* **Position**:
-  * `Rechts Mitte (Hypixel)` *(Standard - mittig am rechten Rand)*
-  * `Oben Rechts`
-  * `Unten Rechts`
+  * `Deutsch`, `English`, `Español`, `Français`
+* **Position (Rechts & Links)**:
+  * `Rechts Mitte (Hypixel)` *(Standard)*, `Oben Rechts`, `Unten Rechts`
+  * `Links Mitte`, `Oben Links`, `Unten Links`
 * **Modulare Zeilenanzeige**:
   * Euronen anzeigen (`true`/`false`)
   * ArdaPoints anzeigen (`true`/`false`)
   * Spielzeit anzeigen (`true`/`false`)
+  * Session-Timer anzeigen (`false` *(Standard)* / `true`)
   * Jobs anzeigen (`true`/`false`)
+* **Spielzeit & Welten**:
+  * **Spielzeit zusammenrechnen**: `An` *(Standard – summiert alle ausgewählten Welten)* / `Aus` *(listet ausgewählte Welten einzeln auf)*.
+  * **Welten-Auswahl**: `Hauptserver`, `Creative`, `Eventserver`, `Mine` jeweils einzeln aktivierbar (`An`/`Aus`).
 * **Slide-Animation & Auto-Ausblenden**:
-  * **Auto-Ausblenden (Slide)**: HUD fährt nach Inaktivität automatisch zur Seite heraus (`true`/`false`).
+  * **Auto-Ausblenden (Slide)**: HUD fährt nach Inaktivität automatisch zur jeweiligen Bildschirmseite (links/rechts) heraus (`true`/`false`).
   * **Anzeigedauer**: Dauer bis zum Ausblenden: 3s / 5s *(Standard)* / 8s / 10s / 15s.
   * **Bei Tab anzeigen**: Beim Drücken/Halten der Tab-Taste (Spielerliste) einblenden (`true`/`false`).
 * **Synchronisierungszeiten**:
@@ -135,15 +143,15 @@ src/
 │   ├── ArdaniaI18n.java            # Mehrsprachige Lokalisierung (DE, EN, ES, FR & Client-Auto-Erkennung)
 │   ├── ArdaniaState.java           # Thread-sicherer Datenspeicher & JSON-Zustands-Cache
 │   ├── ArdaniaMessageParser.java   # Regex-Parsing von Chat, Actionbar, Jobs (inkl. MAX) & Ontime
-│   ├── ArdaniaChatListener.java    # Stille Nachrichtenabfangung & Event-Trigger
-│   ├── ArdaniaSyncManager.java     # Anti-Spam Queue, Cooldowns & Request-Scheduler
+│   ├── ArdaniaChatListener.java    # Stille Nachrichtenabfangung & Event-Trigger (ALLOW_GAME & ALLOW_CHAT)
+│   ├── ArdaniaSyncManager.java     # Anti-Spam Queue, Command-Tree-Check, Tablist-Servererkennung & Scheduler
 │   ├── ArdaniaModMenuApiImpl.java  # ModMenu API Integration
 │   ├── ArdaniaClientMod.java       # Mod-Einstiegspunkt für MC 26.x
-│   ├── ArdaniaConfigScreen.java    # Ingame-Screen-UI für MC 26.x
-│   └── ArdaniaHudRenderer.java     # HudElement & Smoothstep-Rendering für MC 26.x
+│   ├── ArdaniaConfigScreen.java    # 3-Tab Ingame-Screen-UI für MC 26.x
+│   └── ArdaniaHudRenderer.java     # HudElement & Smoothstep-Rendering (Rechts & Links) für MC 26.x
 └── mc121/java/de/ardania/hud/
     ├── ArdaniaClientMod.java       # Mod-Einstiegspunkt & dynamische Keybind-Kompatibilität (1.21.0 - 1.21.11)
-    ├── ArdaniaConfigScreen.java    # Ingame-Screen-UI für GuiGraphics (1.21.x)
+    ├── ArdaniaConfigScreen.java    # 3-Tab Ingame-Screen-UI für GuiGraphics (1.21.x)
     └── ArdaniaHudRenderer.java     # HudRenderCallback & dynamische drawString-Auflösung (1.21.x)
 ```
 

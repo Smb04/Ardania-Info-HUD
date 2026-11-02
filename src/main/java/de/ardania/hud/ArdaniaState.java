@@ -47,6 +47,9 @@ public final class ArdaniaState {
         }
     }
 
+    public record ServerPlaytimeEntry(String displayName, String formattedTime) {
+    }
+
     private BigDecimal euronen;
     private boolean euronenKnown;
     private long ardaPoints;
@@ -56,6 +59,7 @@ public final class ArdaniaState {
     private final Map<String, Long> serverPlaytimes = new LinkedHashMap<>();
     private long basePlaytimeMinutes = -1;
     private long playtimeBaseTimestamp = -1;
+    private long sessionStartTimestamp = -1;
 
     private volatile long lastNonPlaytimeUpdateTimestamp = 0;
     private volatile long lastManualHideTimestamp = 0;
@@ -193,19 +197,101 @@ public final class ArdaniaState {
         return this.basePlaytimeMinutes >= 0;
     }
 
+    private long getElapsedMinutesSinceSync() {
+        if (this.playtimeBaseTimestamp <= 0) {
+            return 0;
+        }
+        long elapsedMinutes = (System.currentTimeMillis() - this.playtimeBaseTimestamp) / 60_000L;
+        return Math.max(0, elapsedMinutes);
+    }
+
     public synchronized long getCurrentTotalMinutes() {
         if (this.basePlaytimeMinutes < 0) {
             return -1;
         }
-        if (this.playtimeBaseTimestamp <= 0) {
-            return this.basePlaytimeMinutes;
+        return this.basePlaytimeMinutes + getElapsedMinutesSinceSync();
+    }
+
+    public synchronized long getFilteredTotalMinutes(
+            boolean includeHauptserver,
+            boolean includeCreative,
+            boolean includeEventserver,
+            boolean includeMine
+    ) {
+        if (this.basePlaytimeMinutes < 0) {
+            return -1;
         }
-        long elapsedMinutes = (System.currentTimeMillis() - this.playtimeBaseTimestamp) / 60_000L;
-        return this.basePlaytimeMinutes + Math.max(0, elapsedMinutes);
+        if (!includeHauptserver && !includeCreative && !includeEventserver && !includeMine) {
+            return 0;
+        }
+        long sum = 0;
+        for (Map.Entry<String, Long> entry : this.serverPlaytimes.entrySet()) {
+            String key = entry.getKey();
+            long mins = entry.getValue() != null ? entry.getValue() : 0L;
+            if (isServerIncluded(key, includeHauptserver, includeCreative, includeEventserver, includeMine)) {
+                sum += mins;
+            }
+        }
+        return sum + getElapsedMinutesSinceSync();
+    }
+
+    private static boolean isServerIncluded(
+            String key,
+            boolean includeHauptserver,
+            boolean includeCreative,
+            boolean includeEventserver,
+            boolean includeMine
+    ) {
+        return switch (key) {
+            case "hauptserver" -> includeHauptserver;
+            case "creative" -> includeCreative;
+            case "eventserver" -> includeEventserver;
+            case "mine" -> includeMine;
+            default -> includeHauptserver && includeCreative && includeEventserver && includeMine;
+        };
     }
 
     public synchronized String getFormattedPlaytime() {
-        long totalMin = getCurrentTotalMinutes();
+        return formatMinutes(getCurrentTotalMinutes());
+    }
+
+    public synchronized String getFormattedPlaytime(ArdaniaConfig config) {
+        if (config == null) {
+            return getFormattedPlaytime();
+        }
+        long mins = getFilteredTotalMinutes(
+                config.playtimeHauptserver,
+                config.playtimeCreative,
+                config.playtimeEventserver,
+                config.playtimeMine
+        );
+        return formatMinutes(mins);
+    }
+
+    public synchronized List<ServerPlaytimeEntry> getSelectedServerPlaytimes(ArdaniaConfig config) {
+        List<ServerPlaytimeEntry> result = new ArrayList<>();
+        boolean known = isPlaytimeKnown();
+
+        if (config.playtimeHauptserver) {
+            String val = known ? formatMinutes(this.serverPlaytimes.getOrDefault("hauptserver", 0L)) : "?";
+            result.add(new ServerPlaytimeEntry("Hauptserver", val));
+        }
+        if (config.playtimeCreative) {
+            String val = known ? formatMinutes(this.serverPlaytimes.getOrDefault("creative", 0L)) : "?";
+            result.add(new ServerPlaytimeEntry("Creative", val));
+        }
+        if (config.playtimeEventserver) {
+            String val = known ? formatMinutes(this.serverPlaytimes.getOrDefault("eventserver", 0L)) : "?";
+            result.add(new ServerPlaytimeEntry("Eventserver", val));
+        }
+        if (config.playtimeMine) {
+            String val = known ? formatMinutes(this.serverPlaytimes.getOrDefault("mine", 0L)) : "?";
+            result.add(new ServerPlaytimeEntry("Mine", val));
+        }
+        return result;
+    }
+
+    public static String formatMinutes(long totalMin) {
         if (totalMin < 0) {
             return "?";
         }
@@ -222,6 +308,25 @@ public final class ArdaniaState {
         }
     }
 
+    public synchronized void startSession(long now) {
+        this.sessionStartTimestamp = now;
+    }
+
+    public synchronized String getFormattedSessionTime(long now) {
+        if (this.sessionStartTimestamp <= 0) {
+            this.sessionStartTimestamp = now;
+        }
+        long totalSeconds = Math.max(0L, (now - this.sessionStartTimestamp) / 1000L);
+        long hours = totalSeconds / 3600L;
+        long minutes = (totalSeconds % 3600L) / 60L;
+        long seconds = totalSeconds % 60L;
+
+        if (hours > 0) {
+            return hours + "h " + minutes + "m " + seconds + "s";
+        }
+        return minutes + "m " + seconds + "s";
+    }
+
     public synchronized void reset() {
         this.euronen = scale(BigDecimal.ZERO);
         this.euronenKnown = false;
@@ -231,6 +336,7 @@ public final class ArdaniaState {
         this.serverPlaytimes.clear();
         this.basePlaytimeMinutes = -1;
         this.playtimeBaseTimestamp = -1;
+        this.sessionStartTimestamp = -1;
         this.lastNonPlaytimeUpdateTimestamp = 0;
         this.lastManualHideTimestamp = 0;
     }
@@ -336,8 +442,12 @@ public final class ArdaniaState {
 
     public synchronized void onServerJoin() {
         loadCache();
+        long now = System.currentTimeMillis();
         if (this.basePlaytimeMinutes >= 0) {
-            this.playtimeBaseTimestamp = System.currentTimeMillis();
+            this.playtimeBaseTimestamp = now;
+        }
+        if (this.sessionStartTimestamp <= 0) {
+            this.sessionStartTimestamp = now;
         }
         notifyStatUpdated();
     }
@@ -345,6 +455,7 @@ public final class ArdaniaState {
     public synchronized void onServerDisconnect() {
         saveCache();
         this.playtimeBaseTimestamp = -1;
+        this.sessionStartTimestamp = -1;
         this.lastNonPlaytimeUpdateTimestamp = 0;
         this.lastManualHideTimestamp = 0;
     }

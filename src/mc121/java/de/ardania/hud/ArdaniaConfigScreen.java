@@ -7,8 +7,15 @@ import net.minecraft.network.chat.Component;
 
 public final class ArdaniaConfigScreen extends Screen {
 
+    private enum ConfigTab {
+        GENERAL,
+        PLAYTIME,
+        SYNC
+    }
+
     private final Screen parent;
     private final ArdaniaConfig config;
+    private ConfigTab currentTab = ConfigTab.GENERAL;
 
     public ArdaniaConfigScreen(Screen parent) {
         super(ArdaniaI18n.translate("config.ardania_hud.title"));
@@ -19,12 +26,60 @@ public final class ArdaniaConfigScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int colWidth = 155;
         int buttonHeight = 20;
-        int spacing = 22;
-        int startY = 28;
 
-        int leftX = centerX - colWidth - 5;
+        int tabWidth = 104;
+        int tabGap = 4;
+        int tabsStartX = centerX - ((tabWidth * 3 + tabGap * 2) / 2);
+        int tabY = 26;
+
+        Button generalTabBtn = Button.builder(
+                ArdaniaI18n.translate("config.ardania_hud.tab.general"),
+                btn -> switchTab(ConfigTab.GENERAL)
+        ).bounds(tabsStartX, tabY, tabWidth, buttonHeight).build();
+        generalTabBtn.active = (this.currentTab != ConfigTab.GENERAL);
+        addRenderableWidget(generalTabBtn);
+
+        Button playtimeTabBtn = Button.builder(
+                ArdaniaI18n.translate("config.ardania_hud.tab.playtime"),
+                btn -> switchTab(ConfigTab.PLAYTIME)
+        ).bounds(tabsStartX + tabWidth + tabGap, tabY, tabWidth, buttonHeight).build();
+        playtimeTabBtn.active = (this.currentTab != ConfigTab.PLAYTIME);
+        addRenderableWidget(playtimeTabBtn);
+
+        Button syncTabBtn = Button.builder(
+                ArdaniaI18n.translate("config.ardania_hud.tab.sync"),
+                btn -> switchTab(ConfigTab.SYNC)
+        ).bounds(tabsStartX + (tabWidth + tabGap) * 2, tabY, tabWidth, buttonHeight).build();
+        syncTabBtn.active = (this.currentTab != ConfigTab.SYNC);
+        addRenderableWidget(syncTabBtn);
+
+        int colWidth = 156;
+        int spacing = 24;
+        int startY = 56;
+        int leftX = centerX - colWidth - 4;
+        int rightX = centerX + 4;
+
+        int contentBottom = switch (this.currentTab) {
+            case GENERAL -> initGeneralTab(leftX, rightX, startY, colWidth, buttonHeight, spacing);
+            case PLAYTIME -> initPlaytimeTab(leftX, rightX, startY, colWidth, buttonHeight, spacing);
+            case SYNC -> initSyncTab(leftX, rightX, startY, colWidth, buttonHeight, spacing);
+        };
+
+        int doneY = Math.max(contentBottom + 12, this.height - 28);
+        addRenderableWidget(Button.builder(
+                ArdaniaI18n.translate("config.ardania_hud.done"),
+                btn -> onClose()
+        ).bounds(centerX - 100, doneY, 200, buttonHeight).build());
+    }
+
+    private void switchTab(ConfigTab tab) {
+        this.currentTab = tab;
+        this.clearWidgets();
+        this.init();
+    }
+
+    private int initGeneralTab(int leftX, int rightX, int startY, int colWidth, int buttonHeight, int spacing) {
         int yLeft = startY;
 
         addRenderableWidget(Button.builder(
@@ -43,16 +98,37 @@ public final class ArdaniaConfigScreen extends Screen {
         addRenderableWidget(Button.builder(
                 getPositionText(),
                 btn -> {
-                    switch (config.position) {
-                        case MIDDLE_RIGHT -> config.position = ArdaniaConfig.HudPosition.TOP_RIGHT;
-                        case TOP_RIGHT -> config.position = ArdaniaConfig.HudPosition.BOTTOM_RIGHT;
-                        case BOTTOM_RIGHT -> config.position = ArdaniaConfig.HudPosition.MIDDLE_RIGHT;
-                    }
+                    config.position = switch (config.position) {
+                        case MIDDLE_RIGHT -> ArdaniaConfig.HudPosition.TOP_RIGHT;
+                        case TOP_RIGHT -> ArdaniaConfig.HudPosition.BOTTOM_RIGHT;
+                        case BOTTOM_RIGHT -> ArdaniaConfig.HudPosition.MIDDLE_LEFT;
+                        case MIDDLE_LEFT -> ArdaniaConfig.HudPosition.TOP_LEFT;
+                        case TOP_LEFT -> ArdaniaConfig.HudPosition.BOTTOM_LEFT;
+                        case BOTTOM_LEFT -> ArdaniaConfig.HudPosition.MIDDLE_RIGHT;
+                    };
                     btn.setMessage(getPositionText());
                     ArdaniaConfig.save();
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
         yLeft += spacing;
+
+        addRenderableWidget(Button.builder(
+                getLanguageText(),
+                btn -> {
+                    config.language = switch (config.language) {
+                        case AUTO -> ArdaniaConfig.HudLanguage.DE_DE;
+                        case DE_DE -> ArdaniaConfig.HudLanguage.EN_US;
+                        case EN_US -> ArdaniaConfig.HudLanguage.ES_ES;
+                        case ES_ES -> ArdaniaConfig.HudLanguage.FR_FR;
+                        case FR_FR -> ArdaniaConfig.HudLanguage.AUTO;
+                    };
+                    ArdaniaConfig.save();
+                    this.clearWidgets();
+                    this.init();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+
+        int yRight = startY;
 
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.show_money", config.showMoney),
@@ -61,8 +137,8 @@ public final class ArdaniaConfigScreen extends Screen {
                     btn.setMessage(getToggleText("config.ardania_hud.show_money", config.showMoney));
                     ArdaniaConfig.save();
                 }
-        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
-        yLeft += spacing;
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
 
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.show_points", config.showPoints),
@@ -71,8 +147,33 @@ public final class ArdaniaConfigScreen extends Screen {
                     btn.setMessage(getToggleText("config.ardania_hud.show_points", config.showPoints));
                     ArdaniaConfig.save();
                 }
-        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
-        yLeft += spacing;
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.show_jobs", config.showJobs),
+                btn -> {
+                    config.showJobs = !config.showJobs;
+                    btn.setMessage(getToggleText("config.ardania_hud.show_jobs", config.showJobs));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.show_session", config.showSessionTimer),
+                btn -> {
+                    config.showSessionTimer = !config.showSessionTimer;
+                    btn.setMessage(getToggleText("config.ardania_hud.show_session", config.showSessionTimer));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+
+        return Math.max(yLeft, yRight) + buttonHeight;
+    }
+
+    private int initPlaytimeTab(int leftX, int rightX, int startY, int colWidth, int buttonHeight, int spacing) {
+        int yLeft = startY;
 
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.show_playtime", config.showPlaytime),
@@ -85,26 +186,70 @@ public final class ArdaniaConfigScreen extends Screen {
         yLeft += spacing;
 
         addRenderableWidget(Button.builder(
-                getToggleText("config.ardania_hud.show_jobs", config.showJobs),
+                getToggleText("config.ardania_hud.combine_playtime", config.combinePlaytime),
                 btn -> {
-                    config.showJobs = !config.showJobs;
-                    btn.setMessage(getToggleText("config.ardania_hud.show_jobs", config.showJobs));
+                    config.combinePlaytime = !config.combinePlaytime;
+                    btn.setMessage(getToggleText("config.ardania_hud.combine_playtime", config.combinePlaytime));
                     ArdaniaConfig.save();
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
         yLeft += spacing;
 
         addRenderableWidget(Button.builder(
-                getToggleText("config.ardania_hud.show_on_tab", config.showOnTab),
+                getToggleText("config.ardania_hud.show_session", config.showSessionTimer),
                 btn -> {
-                    config.showOnTab = !config.showOnTab;
-                    btn.setMessage(getToggleText("config.ardania_hud.show_on_tab", config.showOnTab));
+                    config.showSessionTimer = !config.showSessionTimer;
+                    btn.setMessage(getToggleText("config.ardania_hud.show_session", config.showSessionTimer));
                     ArdaniaConfig.save();
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
 
-        int rightX = centerX + 5;
         int yRight = startY;
+
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.server.hauptserver", config.playtimeHauptserver),
+                btn -> {
+                    config.playtimeHauptserver = !config.playtimeHauptserver;
+                    btn.setMessage(getToggleText("config.ardania_hud.server.hauptserver", config.playtimeHauptserver));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.server.creative", config.playtimeCreative),
+                btn -> {
+                    config.playtimeCreative = !config.playtimeCreative;
+                    btn.setMessage(getToggleText("config.ardania_hud.server.creative", config.playtimeCreative));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.server.eventserver", config.playtimeEventserver),
+                btn -> {
+                    config.playtimeEventserver = !config.playtimeEventserver;
+                    btn.setMessage(getToggleText("config.ardania_hud.server.eventserver", config.playtimeEventserver));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.server.mine", config.playtimeMine),
+                btn -> {
+                    config.playtimeMine = !config.playtimeMine;
+                    btn.setMessage(getToggleText("config.ardania_hud.server.mine", config.playtimeMine));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+
+        return Math.max(yLeft, yRight) + buttonHeight;
+    }
+
+    private int initSyncTab(int leftX, int rightX, int startY, int colWidth, int buttonHeight, int spacing) {
+        int yLeft = startY;
 
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.auto_sync", config.autoSyncPeriodic),
@@ -113,8 +258,8 @@ public final class ArdaniaConfigScreen extends Screen {
                     btn.setMessage(getToggleText("config.ardania_hud.auto_sync", config.autoSyncPeriodic));
                     ArdaniaConfig.save();
                 }
-        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
-        yRight += spacing;
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
 
         addRenderableWidget(Button.builder(
                 getMoneyIntervalText(),
@@ -128,8 +273,8 @@ public final class ArdaniaConfigScreen extends Screen {
                     btn.setMessage(getMoneyIntervalText());
                     ArdaniaConfig.save();
                 }
-        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
-        yRight += spacing;
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
 
         addRenderableWidget(Button.builder(
                 getPointsIntervalText(),
@@ -143,8 +288,8 @@ public final class ArdaniaConfigScreen extends Screen {
                     btn.setMessage(getPointsIntervalText());
                     ArdaniaConfig.save();
                 }
-        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
-        yRight += spacing;
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
 
         addRenderableWidget(Button.builder(
                 getPlaytimeIntervalText(),
@@ -158,8 +303,8 @@ public final class ArdaniaConfigScreen extends Screen {
                     btn.setMessage(getPlaytimeIntervalText());
                     ArdaniaConfig.save();
                 }
-        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
-        yRight += spacing;
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
 
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.sync_join", config.autoSyncOnJoin),
@@ -168,8 +313,9 @@ public final class ArdaniaConfigScreen extends Screen {
                     btn.setMessage(getToggleText("config.ardania_hud.sync_join", config.autoSyncOnJoin));
                     ArdaniaConfig.save();
                 }
-        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
-        yRight += spacing;
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+
+        int yRight = startY;
 
         addRenderableWidget(Button.builder(
                 getToggleText("config.ardania_hud.auto_hide", config.autoHide),
@@ -197,30 +343,18 @@ public final class ArdaniaConfigScreen extends Screen {
                     ArdaniaConfig.save();
                 }
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
 
-        int langY = Math.max(yLeft, yRight) + spacing;
         addRenderableWidget(Button.builder(
-                getLanguageText(),
+                getToggleText("config.ardania_hud.show_on_tab", config.showOnTab),
                 btn -> {
-                    config.language = switch (config.language) {
-                        case AUTO -> ArdaniaConfig.HudLanguage.DE_DE;
-                        case DE_DE -> ArdaniaConfig.HudLanguage.EN_US;
-                        case EN_US -> ArdaniaConfig.HudLanguage.ES_ES;
-                        case ES_ES -> ArdaniaConfig.HudLanguage.FR_FR;
-                        case FR_FR -> ArdaniaConfig.HudLanguage.AUTO;
-                    };
+                    config.showOnTab = !config.showOnTab;
+                    btn.setMessage(getToggleText("config.ardania_hud.show_on_tab", config.showOnTab));
                     ArdaniaConfig.save();
-                    this.clearWidgets();
-                    this.init();
                 }
-        ).bounds(centerX - 100, langY, 200, buttonHeight).build());
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
 
-        int contentBottom = langY + buttonHeight;
-        int doneY = Math.max(contentBottom + 8, this.height - 26);
-        addRenderableWidget(Button.builder(
-                ArdaniaI18n.translate("config.ardania_hud.done"),
-                btn -> onClose()
-        ).bounds(centerX - 100, doneY, 200, buttonHeight).build());
+        return Math.max(yLeft, yRight) + buttonHeight;
     }
 
     @Override
@@ -228,7 +362,7 @@ public final class ArdaniaConfigScreen extends Screen {
         super.render(graphics, mouseX, mouseY, delta);
         Component localizedTitle = ArdaniaI18n.translate("config.ardania_hud.title");
         int titleX = (this.width - this.font.width(localizedTitle)) / 2;
-        ArdaniaHudRenderer.drawText(graphics, this.font, localizedTitle, titleX, 12, 0xFFFFFFFF, true);
+        ArdaniaHudRenderer.drawText(graphics, this.font, localizedTitle, titleX, 10, 0xFFFFFFFF, true);
     }
 
     @Override

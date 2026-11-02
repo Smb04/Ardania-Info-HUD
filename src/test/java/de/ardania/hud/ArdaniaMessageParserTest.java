@@ -113,8 +113,31 @@ class ArdaniaMessageParserTest {
     @Test
     void voteRewardAddsArdaPoints() {
         state.setArdaPoints(50);
-        assertTrue(parser.parse("Danke fürs Voten! Du hast 25 ArdaPoints erhalten.", false));
+        assertTrue(parser.parse("Danke f\u00FCrs Voten! Du hast 25 ArdaPoints erhalten.", false));
         assertEquals(75, state.getArdaPoints());
+        assertTrue(parser.isVoteNotification("Danke f\u00FCrs Voten! Du hast 25 ArdaPoints erhalten."));
+    }
+
+    @Test
+    void voteGoalRewardAddsArdaPointsAndTriggersSync() {
+        state.setArdaPoints(100);
+        assertTrue(parser.parse("Das Voteziel wurde erreicht! Jeder Spieler erh\u00E4lt 50 ArdaPoints!", false));
+        assertEquals(150, state.getArdaPoints());
+
+        assertTrue(parser.parse("Das Vote-Ziel von 100 Votes wurde erreicht! Alle Spieler erhalten 25 ArdaPoints.", false));
+        assertEquals(175, state.getArdaPoints());
+
+        assertTrue(parser.parse("Dir wurden 50 ArdaPoints f\u00FCr das Voteziel gutgeschrieben.", false));
+        assertEquals(225, state.getArdaPoints());
+
+        assertTrue(parser.parse("F\u00FCr das Erreichen des Voteziels bekommst du 30 ArdaPoints!", false));
+        assertEquals(255, state.getArdaPoints());
+
+        assertTrue(parser.isVoteNotification("Das Voteziel wurde erreicht!"));
+        assertTrue(parser.isVoteNotification("Das Vote-Ziel wurde erreicht!"));
+        assertFalse(parser.isPointsBalanceResponse("Das Voteziel wurde erreicht! Jeder Spieler erh\u00E4lt 50 ArdaPoints!"));
+        assertTrue(parser.isPointsBalanceResponse("[ArdaniaPoints] Du besitzt 2,578 ArdaniaPoints"));
+        assertTrue(parser.isPointsBalanceResponse("\u00A7a[ArdaniaPoints] \u00A77Du besitzt aktuell: \u00A7e2.578 ArdaniaPoints"));
     }
 
     @Test
@@ -391,5 +414,77 @@ class ArdaniaMessageParserTest {
         assertEquals(ArdaniaConfig.HudLanguage.ES_ES, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.AUTO, "es_mx"));
         assertEquals(ArdaniaConfig.HudLanguage.FR_FR, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.AUTO, "fr_ca"));
         assertEquals(ArdaniaConfig.HudLanguage.FR_FR, ArdaniaI18n.resolveLanguage(ArdaniaConfig.HudLanguage.FR_FR, "de_de"));
+    }
+
+    @Test
+    void playtimeFilteringAndSeparateServerDisplay() {
+        String fullChatBlock = "Name: PX_Sven\n" +
+                "Beigetreten am: 23.02.2026 15:01\n" +
+                "Hauptserver: 17 Tage 9 Stunden 21 Minute\n" +
+                "Creative: 0 Tage 0 Stunden 13 Minute\n" +
+                "Eventserver: 0 Tage 0 Stunden 38 Minute\n" +
+                "Mine: 0 Tage 12 Stunden 10 Minute\n" +
+                "-----------------------------------------------------";
+
+        assertTrue(parser.parse(fullChatBlock, false));
+
+        // Alle 4 Server kombiniert: 17d 9h 21m (25041m) + 13m + 38m + 12h 10m (730m) = 25822m = 17d 22h 22m
+        assertEquals(25822L, state.getFilteredTotalMinutes(true, true, true, true));
+        assertEquals("17d 22h 22m", ArdaniaState.formatMinutes(state.getFilteredTotalMinutes(true, true, true, true)));
+
+        // Nur Hauptserver + Mine: 25041m + 730m = 25771m = 17d 21h 31m
+        assertEquals(25771L, state.getFilteredTotalMinutes(true, false, false, true));
+        assertEquals("17d 21h 31m", ArdaniaState.formatMinutes(state.getFilteredTotalMinutes(true, false, false, true)));
+
+        // Nur Hauptserver: 25041m = 17d 9h 21m
+        assertEquals(25041L, state.getFilteredTotalMinutes(true, false, false, false));
+        assertEquals("17d 9h 21m", ArdaniaState.formatMinutes(state.getFilteredTotalMinutes(true, false, false, false)));
+    }
+
+    @Test
+    void sessionTimerAndPositionLeftRight() {
+        state.startSession(1_000L);
+        assertEquals("0m 0s", state.getFormattedSessionTime(1_000L));
+        assertEquals("2m 5s", state.getFormattedSessionTime(1_000L + 125_000L));
+        assertEquals("1h 1m 1s", state.getFormattedSessionTime(1_000L + 3_661_000L));
+
+        assertFalse(ArdaniaConfig.HudPosition.MIDDLE_RIGHT.isLeft());
+        assertFalse(ArdaniaConfig.HudPosition.TOP_RIGHT.isLeft());
+        assertFalse(ArdaniaConfig.HudPosition.BOTTOM_RIGHT.isLeft());
+        assertTrue(ArdaniaConfig.HudPosition.MIDDLE_LEFT.isLeft());
+        assertTrue(ArdaniaConfig.HudPosition.TOP_LEFT.isLeft());
+        assertTrue(ArdaniaConfig.HudPosition.BOTTOM_LEFT.isLeft());
+    }
+
+    @Test
+    void tabServerTagDistinguishesServerTagsFromGuildTags() {
+        assertEquals("H", ArdaniaMessageParser.extractTabServerTag("[H] [Bier] PX_Sven"));
+        assertEquals("M", ArdaniaMessageParser.extractTabServerTag("\u00A77[Gilde] \u00A7aSpieler123 \u00A78[\u00A7eM\u00A78]"));
+        assertEquals("F", ArdaniaMessageParser.extractTabServerTag("[F] [ARDA] Tester"));
+        assertEquals("E", ArdaniaMessageParser.extractTabServerTag("[ClanTag] EventPlayer [E]"));
+        assertEquals("C", ArdaniaMessageParser.extractTabServerTag("[C] [Builder] Sven"));
+
+        // Reine Gildentags oder Rang-Tags ohne [H]/[F]/[M]/[E]/[C] duerfen nicht als Server erkannt werden
+        assertNull(ArdaniaMessageParser.extractTabServerTag("[Bier] PX_Sven"));
+        assertNull(ArdaniaMessageParser.extractTabServerTag("[ARDA] Spieler123"));
+        assertNull(ArdaniaMessageParser.extractTabServerTag("[HM] Spieler456"));
+        assertNull(ArdaniaMessageParser.extractTabServerTag("[F1] Spieler789"));
+        assertNull(ArdaniaMessageParser.extractTabServerTag("[+] PX_Sven"));
+    }
+
+    @Test
+    void fallbackBrigadierUnknownCommandErrorsAreDetectedAndBlocked() {
+        assertTrue(parser.isUnknownCommandError("Unknown or incomplete command. See below for error"));
+        assertTrue(parser.isUnknownCommandError("geld<--[HERE]"));
+        assertTrue(parser.isUnknownCommandError("jobs stats<--[HERE]"));
+        assertTrue(parser.isUnknownCommandError("Unbekannter oder unvollst\u00E4ndiger Befehl, siehe unten f\u00FCr Fehler"));
+        assertTrue(parser.isUnknownCommandError("geld<--[HIER]"));
+        assertTrue(parser.isUnknownCommandError("jobs stats<--[HIER]"));
+
+        assertEquals("geld", parser.extractFailedCommandFromContext("geld<--[HERE]"));
+        assertEquals("jobs stats", parser.extractFailedCommandFromContext("jobs stats<--[HERE]"));
+        assertEquals("ardapoints me", parser.extractFailedCommandFromContext("ardapoints me<--[HIER]"));
+        assertEquals("ontime", parser.extractFailedCommandFromContext("ontime<--[HERE]"));
+        assertNull(parser.extractFailedCommandFromContext("Unknown or incomplete command. See below for error"));
     }
 }
