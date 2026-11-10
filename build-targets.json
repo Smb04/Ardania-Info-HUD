@@ -1,0 +1,14 @@
+[
+  {
+    "id": "mc1.21.x",
+    "minecraft_version": "1.21.1",
+    "fabric_api_version": "0.115.0+1.21.1",
+    "modmenu_version": "11.0.3"
+  },
+  {
+    "id": "mc26.x",
+    "minecraft_version": "26.2",
+    "fabric_api_version": "0.161.0+26.2",
+    "modmenu_version": "20.0.3"
+  }
+]

@@ -20,6 +20,12 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Locale;
 
+/**
+ * Client-Einstiegspunkt der Fabric-Mod fuer Minecraft 1.21.x.
+ *
+ * <p>Initialisiert Konfiguration, State, Chat-Listener, Renderer und
+ * Tastenbelegungen (Taste J fuer Sofortabgleich, Toggle-Key).</p>
+ */
 public final class ArdaniaClientMod implements ClientModInitializer {
 
     public static final String MOD_ID = "ardania_hud";
@@ -33,6 +39,7 @@ public final class ArdaniaClientMod implements ClientModInitializer {
 
     private KeyMapping syncKey;
     private KeyMapping toggleKey;
+    private static volatile net.minecraft.client.gui.screens.Screen pendingScreenToOpen = null;
 
     @Override
     public void onInitializeClient() {
@@ -57,7 +64,10 @@ public final class ArdaniaClientMod implements ClientModInitializer {
             }
         });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> state.onServerDisconnect());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            state.onServerDisconnect();
+            ArdaniaSyncManager.getInstance().onServerDisconnect();
+        });
 
         LOGGER.info("Ardania Info HUD geladen");
     }
@@ -78,6 +88,12 @@ public final class ArdaniaClientMod implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            net.minecraft.client.gui.screens.Screen toOpen = pendingScreenToOpen;
+            if (toOpen != null && !(client.screen instanceof net.minecraft.client.gui.screens.ChatScreen)) {
+                pendingScreenToOpen = null;
+                openScreen(client, toOpen);
+            }
+
             ArdaniaSyncManager.getInstance().tick(client);
 
             while (this.syncKey.consumeClick()) {
@@ -172,7 +188,46 @@ public final class ArdaniaClientMod implements ClientModInitializer {
             return true;
         }
         ServerData server = client.getCurrentServer();
-        return server != null && server.ip != null && server.ip.toLowerCase(Locale.ROOT).contains(SERVER_HOST);
+        if (server != null && server.ip != null) {
+            String host = normalizeHost(server.ip);
+            if (host.contains(SERVER_HOST)) {
+                return true;
+            }
+        }
+        // Fallback fuer Aliase ohne "ardania" im Hostnamen: Der Tablisten-Header
+        // von Ardania.de enthaelt "Willkommen auf Ardania".
+        String header = TabListSnapshot.getHeader();
+        return header != null && header.toLowerCase(Locale.ROOT).contains(SERVER_HOST);
+    }
+
+    private static String normalizeHost(String address) {
+        String value = address.trim().toLowerCase(Locale.ROOT);
+        int slash = value.indexOf('/');
+        if (slash >= 0) {
+            value = value.substring(0, slash);
+        }
+        if (value.startsWith("[")) {
+            int end = value.indexOf(']');
+            if (end > 0) {
+                value = value.substring(0, end + 1);
+            }
+        } else {
+            int colon = value.indexOf(':');
+            if (colon >= 0 && value.indexOf(':', colon + 1) < 0) {
+                value = value.substring(0, colon);
+            }
+        }
+        return value;
+    }
+
+    public static void openScreen(Minecraft client, net.minecraft.client.gui.screens.Screen screen) {
+        if (client != null) {
+            client.setScreen(screen);
+        }
+    }
+
+    public static void requestOpenScreen(net.minecraft.client.gui.screens.Screen screen) {
+        pendingScreenToOpen = screen;
     }
 
     public static ResourceLocation id(String path) {

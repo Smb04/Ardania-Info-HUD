@@ -22,7 +22,8 @@ if (isMc121) {
 					file.toPath().startsWith(mainJavaPath) &&
 						(file.name == 'ArdaniaClientMod.java' ||
 						 file.name == 'ArdaniaHudRenderer.java' ||
-						 file.name == 'ArdaniaConfigScreen.java')
+						 file.name == 'ArdaniaConfigScreen.java' ||
+						 file.name == 'ArdaniaHudEditorScreen.java')
 				}
 			}
 		}
@@ -61,11 +62,13 @@ processResources {
 	def loaderDep = isMc121 ? "0.15.0" : "0.19.5"
 	def mcDep = isMc121 ? ">=1.21 <=1.21.11" : ">=26.2 <=26.3"
 	def javaDep = isMc121 ? "21" : "25"
+	def mixinJava = isMc121 ? "JAVA_21" : "JAVA_25"
 
 	inputs.property "version", version
 	inputs.property "loader_dep", loaderDep
 	inputs.property "mc_dep", mcDep
 	inputs.property "java_dep", javaDep
+	inputs.property "mixin_java", mixinJava
 
 	filesMatching("fabric.mod.json") {
 		expand(
@@ -73,6 +76,12 @@ processResources {
 			"loader_dep": loaderDep,
 			"mc_dep": mcDep,
 			"java_dep": javaDep
+		)
+	}
+
+	filesMatching("ardania_hud.mixins.json") {
+		expand(
+			"mixin_java": mixinJava
 		)
 	}
 }

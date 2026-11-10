@@ -8,9 +8,12 @@
 		"Sven"
 	],
 	"contact": {},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/ardania_hud/icon.png",
 	"environment": "client",
+	"mixins": [
+		"ardania_hud.mixins.json"
+	],
 	"entrypoints": {
 		"client": [
 			"de.ardania.hud.ArdaniaClientMod"

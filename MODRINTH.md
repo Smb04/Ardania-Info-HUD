@@ -1,95 +1,99 @@
-# Ardania Info HUD 1.7
+# Ardania Info HUD 2.0
 
 **Ein kompaktes, elegantes Client-Side Informations-Overlay für den Minecraft-Server Ardania.de.**  
-Kompatibel mit **Fabric** für **Minecraft 1.21.X (1.21 bis 1.21.11)**, **26.2** und **26.3**.
+Kompatibel mit **Fabric** für **Minecraft 1.21.X (1.21 bis 1.21.11)** sowie **26.2** und **26.3** (ein gemeinsames 26.x-JAR).
 
-Nie wieder `/money`, `/ardapoints me` oder `/jobs stats` per Hand eingeben müssen! Das **Ardania Info HUD** zeigt dir alle wichtigen Server-Informationen in einem aufgeräumten, unaufdringlichen Scoreboard-Overlay an – ganz im Stil klassischer Minigame-Server, wahlweise am rechten oder linken Bildschirmrand!
+Nie wieder `/money`, `/ardapoints me` oder `/jobs stats` per Hand eingeben müssen! Das **Ardania Info HUD** zeigt dir alle wichtigen Server-Informationen in einem aufgeräumten, unaufdringlichen Scoreboard-Overlay an – ganz im Stil klassischer Minigame-Server, ergonomisch optimiert nach **DIN EN ISO 9241**, ab Version 2.0 **völlig frei per Maus und Tastatur auf dem Bildschirm verschiebbar**!
 
 ---
 
-### ✨ Features im Überblick (Version 1.7)
+### ✨ Features im Überblick (Version 2.0)
 
-* 💰 **Euronen (Geldanzeige)**:
+* 🖱️ **Visueller In-Game HUD-Editor (Freies Verschieben mit der Maus in allen Versionen)**:
+  * Platziere dein HUD ab sofort völlig frei auf dem Bildschirm per Maus (Drag & Drop) oder mit den Pfeiltasten (`/ardaniahud edit` oder über ModMenu).
+  * **Dual-Layer Input Engine**: Garantiert reibungslose Erkennung in allen Versionen (GLFW & SDL3).
+  * **Magnetisches Einrasten (*Snap-to-Edge & Center*)**: Ränder und Bildschirmmitten rasten mit feinen Cyan-Hilfslinien automatisch ein.
+  * **Pfeiltasten-Feinjustierung**: Verschiebe das HUD pixelweise (mit `Shift` in 5px-Schritten).
+  * **Auto-Dodge Toolbar**: Die Steuerungs-Buttons weichen automatisch nach oben aus, wenn das HUD im unteren Bildschirmbereich liegt.
+* 📐 **Ergonomische 6 feste Positionen (DIN EN ISO 9241-110)**:
+  * 6 feste Bildschirm-Positionen: `Rechts Oben`, `Rechts Mitte` (Hypixel-Stil), `Rechts Unten`, `Links Oben`, `Links Mitte`, `Links Unten`.
+  * Direktes Umschalten von Position und Skalierung (75% bis 125%) im Konfigurationsmenü.
+  * Automatisches Viewport-Clamping verhindert jegliches Herausrutschen des Overlays bei Auflösungs- oder GUI-Scale-Wechseln.
+* 🛡️ **Intelligenter AFK-Schutz (`/afk` + 10-Block-Distanzprüfung)**:
+  * Nach Eingabe von `/afk` pausiert das Info HUD sofort alle automatisierten Abfragen (`geld`, `ardapoints me`, `jobs stats`, `ontime`).
+  * Dein serverseitiger AFK-Status bleibt unberührt, bis du dich um mindestens **10 Blöcke** bewegst, erneut `/afk` eingibst oder die Chat-Meldung erscheint.
+* ⚖️ **Moderator- & Team-Befehls-Kompatibilität**:
+  * Keine Beeinträchtigung von Moderations-Befehlen (`/whois`, `/seen`, `/check`, `/history` etc.): Chat-Antworten werden ausschließlich im engen Zeitfenster nach echten Auto-Sync-Abfragen gefiltert; eigene HUD-Werte werden bei Abfragen fremder Spieler nicht überschrieben.
+* 🌐 **Robuste Fallback-Server-Erkennung `[F]`**:
+  * Auf dem Fallback-Server nach Serverneustarts werden keine Befehle gesendet.
+  * Syntaxfehler (`Unknown or incomplete command...`) werden lautlos abgefangen – der Chat bleibt vollkommen fehlerfrei.
+* ⛏️ **Multi-Job & dezenter Mini-XP-Fortschrittsbalken (Anti-Clutter)**:
+  * Erkennt automatisch alle Berufe aus `/jobs stats`.
+  * **Zwei Fortschrittsmodi**: Wähle zwischen kompakter Prozentanzeige (`Mobhunter 80% [24]`) oder einem **subtilen 2-Pixel-Fortschrittsbalken** direkt unter dem Job.
+  * Berufe auf Maximalstufe (Level 30) werden edel als `[MAX]` in Gold hervorgehoben.
+* 🏛️ **Smarte Unterserver-Sichtbarkeitsprofile**:
+  * Auf dem **Creative-Server** oder bei **Event-Games** wird das HUD auf Wunsch automatisch ausgeblendet (`Ausblenden`, `Bei Tab`, `Anzeigen`).
+  * Nahtlose Wiederanzeige, sobald du auf den Hauptserver oder in die Mine zurückkehrst.
+* 💰 **Euronen (Geldanzeige & Live-Gewinn)**:
   * Ruft deinen tatsächlichen Kontostand automatisch und lautlos über die **ArdaBank** ab.
   * Reagiert auf Job-Vergütungen in der Action-Bar (`+0.15$`, `+0,02 Euronen`) und gleicht den Betrag verlässlich ab.
-  * Erfasst direkte Buchungsmitteilungen (Überweisungen, Käufe, Zinsen) ohne Verzögerung.
+  * **Session-Gewinn & Verdienst**: Erfasst live deinen Netto-Verdienst seit Serverbeitritt inklusive aktuellem Stundensatz (z. B. `+1.234,50 € (+3.400 €/h)`).
 * 💠 **ArdaPoints & Voteziel-Erkennung**:
   * Zeigt deine aktuellen Punkte in Echtzeit an.
-  * Unterstützt automatische Erfassung von Daily-Rewards, monatlichen Belohnungen, Server-Votes sowie dem **Voteziel** (`+25 ArdaPoints`, `Voteziel erreicht` inkl. automatischem Hintergrund-Abgleich).
+  * Unterstützt automatische Erfassung von Daily-Rewards, monatlichen Belohnungen, Server-Votes sowie dem **Voteziel** (`+25 ArdaPoints`).
 * ⏳ **Multi-Server Spielzeittracking (Ontime) & Session-Timer**:
-  * Erfasst die Spielzeiten aller Welten (`Hauptserver`, `Creative`, `Eventserver`, `Mine` / Nether).
-  * **Frei konfigurierbar im ModMenu**: Wähle aus, welche Welten berücksichtigt werden und ob diese **zusammengerechnet** oder **einzeln** angezeigt werden sollen.
-  * **Optionaler Session-Timer** *(standardmäßig aus)*: Zeigt dir auf Wunsch deine aktuelle Sitzungsdauer (`Xh Ym Zs`) seit dem Serverbeitritt an.
-* ⛏️ **Multi-Job, rechtsbündige Joblevel & MAX-Stufe**:
-  * Erkennt automatisch alle deine aktiven Berufe aus `/jobs stats`.
-  * Zeigt Berufsbezeichnungen links und Level (`[24]`, `[12]`, `[MAX]`) **sauber rechtsbündig am Boxrand untereinander ausgerichtet** an.
-  * Berufe auf Maximalstufe (Level 30) werden als `[MAX]` in Gold hervorgehoben (`Mobhunter [MAX]`).
-  * Aktualisiert sich automatisch im Hintergrund bei `[ArdaniaJobs]`-Aufstiegen.
-* 📍 **Freie Positionswahl (Rechts & Links)**:
-  * Wähle zwischen `Rechts Mitte`, `Oben Rechts`, `Unten Rechts` oder `Links Mitte`, `Oben Links`, `Unten Links`.
-  * Sanfte Slide-Animation angepasst an die jeweilige Bildschirmseite.
-* 🌐 **Server-Erkennung (Tabliste & Command-Tree) & Subserver-Schutz**:
-  * Erkennt über Tablisten-Kürzel (`[H]` für Hauptserver, `[C]` für Creative, `[M]` für Mine, `[E]` für Event, `[F]` für Fallback) sowie den Brigadier-Befehlsbaum des Servers automatisch, auf welchem Server du bist, und unterscheidet Server-Kürzel von Gildentags (`[Bier]`, `[ARDA]`).
-  * Prüft vor jedem Befehl im Befehlsbaum, ob dieser auf dem aktuellen Unterserver existiert, und pausiert nicht verfügbare Befehle auf `Fallback`, `Mine` und `Creative`.
-* 💾 **Lokaler Zustands-Cache (Fallback auf Unterservern)**:
-  * Speichert den letzten bekannten Stand beim Verlassen des Servers sowie bei Updates in einer Cache-Datei (`ardania_hud_cache.json`).
-  * Sind auf bestimmten Welten (z. B. `Fallback`, `Mine` / Nether oder `Creative`) einzelne Befehle nicht verfügbar, zeigt das HUD für diese Werte nahtlos den zuletzt gespeicherten Stand an.
-* 🌍 **Mehrsprachigkeit (DE, EN, ES, FR)**:
-  * Vollständige Lokalisierung für **Deutsch**, **Englisch**, **Spanisch** und **Französisch** – automatisch über die Minecraft-Sprache oder direkt umschaltbar im ModMenu-Einstellungsbildschirm.
-* 🎬 **Auto-Hide mit Slide-Animation & Tab-Integration**:
-  * Optionales automatisches Ein- und Ausblenden mit sanfter Slide-Animation bei Status-Updates sowie beim Drücken/Halten von `Tab`.
-  * Einstellbare Anzeigedauer (`3s`, `5s`, `8s`, `10s`, `15s`).
-* 🔕 **Intelligente Silent-Synchronisation & Chat-Filter**:
-  * Alle Hintergrund-Abfragen der Mod werden **vollständig aus dem Chat ausgeblendet** – dein Chatfenster bleibt komplett sauber!
-  * Fehlermeldungen bei Weltenwechseln oder auf dem Fallback-Server (sowohl *"Du kannst diesen Befehl in dieser Welt nicht benutzen"* als auch Brigadier-Meldungen wie *"Unknown or incomplete command"* / `geld<--[HERE]`) werden automatisch abgefangen.
-  * **Tippst du selbst einen Befehl im Chat ein**, siehst du die Antwort wie gewohnt ganz normal!
-* 🛡️ **Anti-Flag & Rate-Limiting**:
-  * Schonend für den Server: Befehle werden gestaffelt mit Pausen gesendet, niemals im selben Tick.
-  * Farming-Debounce verhindert Spam-Flags beim schnellen Abbauen von Erzen oder Feldern.
-* 🎨 **Kompaktes Hypixel-Design**:
-  * Halbtransparenter Kasten für perfekte Lesbarkeit vor jedem Hintergrund.
-  * Wird bei **F1** automatisch ausgeblendet.
-  * Nur aktiv, wenn du tatsächlich auf `ardania.de` spielst.
+  * Erfasst die Spielzeiten aller Welten (`Hauptserver`, `Creative`, `Eventserver`, `Mine`) automatisch beim Serverbeitritt.
+  * Frei konfigurierbar im ModMenu: Welten zusammenrechnen oder einzeln auflisten.
+  * Optionaler Session-Timer (`Xh Ym Zs`).
+* 🔢 **Kompakte Zahlen & einstellbare Deckkraft**:
+  * **Kompakte Zahlen**: Optionale K/M-Formatierung (`30,2k €`, `1,5M €`).
+  * **Deckkraft**: Hintergrund-Transparenz in 25%-Schritten von 0% (unsichtbar) bis 100% (voll deckend) frei einstellbar.
 
 ---
 
 ### ⚙️ ModMenu & Ingame-Einstellungen
 
-Über **ModMenu** (oder in der Datei `.minecraft/config/ardania_hud.json`) kannst du das Overlay über 3 übersichtliche Tabs frei nach deinen Wünschen anpassen:
+Über **ModMenu** (oder in `.minecraft/config/ardania_hud.json`) kannst du das Overlay über 3 übersichtliche Tabs frei anpassen:
 
-* **Position (Rechts & Links)**:
-  * `Rechts Mitte (Hypixel)` *(Standard)*, `Oben Rechts`, `Unten Rechts`
-  * `Links Mitte`, `Oben Links`, `Unten Links`
-* **Modulare Anzeigen**: Blende beliebige Zeilen ein oder aus (Euronen, ArdaPoints, Spielzeit, Session-Timer, Jobs).
-* **Spielzeit & Welten**:
-  * Spielzeit zusammenrechnen (`An`/`Aus`)
-  * Einzelne Welten ein-/ausschalten (`Hauptserver`, `Creative`, `Eventserver`, `Mine`)
-* **Auto-Ausblenden & Tab**:
-  * Auto-Ausblenden (Slide) an-/ausschalten
-  * Anzeigedauer (3s / 5s / 8s / 10s / 15s)
-  * Bei Tab anzeigen an-/ausschalten
-* **Synchronisierungszeiten**:
-  * Geld-Cooldown (15s / 30s / 60s / 120s)
-  * Punkte-Intervall (30s / 60s / 120s / 300s)
-  * Spielzeit-Intervall (15m / 30m / 60m / 120m)
-  * Sync beim Serverbeitritt an-/ausschalten
+* **Tab 1: Anzeige & Layout**:
+  * **HUD frei verschieben ...**: Öffnet den visuellen Drag & Drop Editor.
+  * **Position**: 6 vordefinierte Anker oder `Frei platziert`.
+  * **HUD-Skalierung**: 75%, 90%, 100%, 110%, 125%.
+  * **Job-XP**: `Prozent` / `Balken` / `Aus`.
+  * **Deckkraft**: 0%, 25%, 50%, 75%, 100%.
+  * **Kompakte Zahlen**: `An` / `Aus`.
+  * **Anzeigefelder**: Euronen, ArdaPoints, Jobs, Session-Gewinn.
+* **Tab 2: Spielzeit & Welten**:
+  * Spielzeit anzeigen (`An`/`Aus`) & Zusammenrechnen (`An`/`Aus`).
+  * Session-Timer (`An`/`Aus`).
+  * Creative-, Event- & Mine-Sichtbarkeit (`Ausblenden`, `Bei Tab`, `Anzeigen`).
+  * Einzelne Welten ein-/ausschalten (`Hauptserver`, `Creative`, `Eventserver`, `Mine`).
+* **Tab 3: Sync & Slide**:
+  * Auto-Ausblenden (Slide) an-/ausschalten & Anzeigedauer (3s – 15s).
+  * Bei Tab anzeigen an-/ausschalten.
+  * Cooldowns und Sync-Intervalle.
 
 ---
 
 ### 🎮 Steuerung
 
-* **Taste `J`** *(Standard)*: Führt einen sofortigen, leisen Komplettabgleich aller Werte mit dem Server durch (`/geld`, `/ardapoints me`, `/jobs stats`, `/ontime`).
+* **Taste `J`** *(Standard)*: Führt einen sofortigen, leisen Komplettabgleich aller Werte mit dem Server durch (`/geld`, `/ontime`, `/ardapoints me`, `/jobs stats`).
 * **HUD ein-/ausblenden** *(Optional)*: Frei belegbare Taste zum direkten Ein- und Ausfahren des HUDs.
-* **Tasten ändern**: Unter *Optionen → Steuerung → Tastenbelegung* in der Kategorie *Ardania Info HUD* frei belegbar.
+* **Befehle**:
+  * `/ardaniahud edit`: Öffnet direkt den visuellen Editor zum freien Verschieben.
+  * `/ardaniahud config`: Öffnet das Einstellungsmenü.
+  * `/ardaniahud debug`: Statusprüfung im Chat.
+  * `/ardaniahud debug copy`: Kopiert den Bericht in die Zwischenablage.
 
 ---
 
-### 📥 Installation & Kompatibilität (1.7)
+### 📥 Installation & Kompatibilität (2.0.0)
 
 1. Installiere den **Fabric Loader** für deine Minecraft-Version (**1.21.X**, **26.2** oder **26.3**).
 2. Platziere die **Fabric API** in deinem `mods`-Ordner.
 3. *(Empfohlen)* Installiere **ModMenu**, um auf das Einstellungsmenü zugreifen zu können.
-4. Lade die passende Mod-Version herunter und lege sie in den `mods`-Ordner:
-   * **Minecraft 1.21.X (1.21 bis 1.21.11)**: `ardania-info-hud-mc1.21.x-1.7.0.jar`
-   * **Minecraft 26.3**: `ardania-info-hud-mc26.3-1.7.0.jar`
-   * **Minecraft 26.2**: `ardania-info-hud-mc26.2-1.7.0.jar`
+4. Lade die passende Mod-Version herunter:
+   * **Minecraft 1.21.X (1.21 bis 1.21.11)**: `ardania-info-hud-mc1.21.x-2.0.0.jar`
+   * **Minecraft 26.2 und 26.3**: `ardania-info-hud-mc26.x-2.0.0.jar`
+
+**Getrennte Releases:** 1.21.x und 26.x werden ab 2.0.0 als zwei eigenständige Versionen veröffentlicht. Die passenden Changelogs stehen in `RELEASE_NOTES_MC1.21.x.md` und `RELEASE_NOTES_MC26.x.md`.

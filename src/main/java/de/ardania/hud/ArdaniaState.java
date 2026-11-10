@@ -22,6 +22,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Thread-sicherer zentraler Zustandsspeicher fuer alle Ardania-spezifischen Daten.
+ *
+ * <p>Verwaltet:</p>
+ * <ul>
+ *   <li>Euronen (Kontostand mit exakter {@link BigDecimal}-Arithmetik)</li>
+ *   <li>ArdaPoints (Punkte und Voteziel-Gutschriften)</li>
+ *   <li>Jobs & Berufsfortschritt (inkl. Prozent- und XP-Werte sowie Level 30 [MAX])</li>
+ *   <li>Server-Spielzeiten (aufgeteilt nach Hauptserver, Mine, Event, Creative)</li>
+ *   <li>Sitzungsstatistiken (Netto-Gewinn, Stundenlohn und Sitzungsdauer)</li>
+ *   <li>Persistenter JSON-Zustands-Cache zur sofortigen Anzeige bei Spielstart</li>
+ * </ul>
+ */
 public final class ArdaniaState {
 
     private static final ArdaniaState INSTANCE = new ArdaniaState();
@@ -37,13 +50,36 @@ public final class ArdaniaState {
         Map<String, Long> serverPlaytimes = new LinkedHashMap<>();
     }
 
-    public record JobEntry(String name, int level, boolean isMax) {
+    public record JobEntry(String name, int level, boolean isMax, double currentXp, double maxXp) {
         public JobEntry(String name, int level) {
-            this(name, level, level >= 30);
+            this(name, level, level >= 30, 0.0, 0.0);
+        }
+
+        public JobEntry(String name, int level, boolean isMax) {
+            this(name, level, isMax, 0.0, 0.0);
         }
 
         public String displayLevel() {
             return (isMax || level >= 30) ? "MAX" : String.valueOf(level);
+        }
+
+        public boolean hasXpInfo() {
+            return maxXp > 0.0 && currentXp >= 0.0 && !isMax && level < 30;
+        }
+
+        public int xpPercent() {
+            if (!hasXpInfo()) return 0;
+            return (int) Math.round((currentXp / maxXp) * 100.0);
+        }
+
+        public String formatBadge(boolean showXp) {
+            if (isMax || level >= 30) {
+                return "[MAX]";
+            }
+            if (showXp && hasXpInfo()) {
+                return xpPercent() + "% [" + level + "]";
+            }
+            return "[" + level + "]";
         }
     }
 
@@ -60,6 +96,8 @@ public final class ArdaniaState {
     private long basePlaytimeMinutes = -1;
     private long playtimeBaseTimestamp = -1;
     private long sessionStartTimestamp = -1;
+    private BigDecimal sessionStartEuronen = null;
+    private long sessionStartPoints = -1;
 
     private volatile long lastNonPlaytimeUpdateTimestamp = 0;
     private volatile long lastManualHideTimestamp = 0;
@@ -77,6 +115,9 @@ public final class ArdaniaState {
         boolean changed = !this.euronenKnown || this.euronen.compareTo(scaled) != 0;
         this.euronen = scaled;
         this.euronenKnown = true;
+        if (this.sessionStartEuronen == null) {
+            this.sessionStartEuronen = scaled;
+        }
         if (changed) {
             this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
         }
@@ -105,6 +146,9 @@ public final class ArdaniaState {
         boolean changed = !this.ardaPointsKnown || this.ardaPoints != sanitized;
         this.ardaPoints = sanitized;
         this.ardaPointsKnown = true;
+        if (this.sessionStartPoints < 0) {
+            this.sessionStartPoints = sanitized;
+        }
         if (changed) {
             this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
         }
@@ -129,15 +173,19 @@ public final class ArdaniaState {
     }
 
     public synchronized void addOrUpdateJob(String jobName, int level) {
-        addOrUpdateJob(jobName, level, level >= 30);
+        addOrUpdateJob(jobName, level, level >= 30, 0.0, 0.0);
     }
 
     public synchronized void addOrUpdateJob(String jobName, int level, boolean isMax) {
+        addOrUpdateJob(jobName, level, isMax, 0.0, 0.0);
+    }
+
+    public synchronized void addOrUpdateJob(String jobName, int level, boolean isMax, double currentXp, double maxXp) {
         if (jobName == null || jobName.isBlank()) return;
         String trimmed = jobName.trim();
         int sanitizedLevel = Math.max(0, level);
         boolean max = isMax || sanitizedLevel >= 30;
-        JobEntry entry = new JobEntry(trimmed, sanitizedLevel, max);
+        JobEntry entry = new JobEntry(trimmed, sanitizedLevel, max, currentXp, maxXp);
         JobEntry previous = this.jobs.put(trimmed, entry);
         if (!entry.equals(previous)) {
             this.lastNonPlaytimeUpdateTimestamp = System.currentTimeMillis();
@@ -177,14 +225,86 @@ public final class ArdaniaState {
     public synchronized void updateServerPlaytime(String serverName, long days, long hours, long minutes) {
         if (serverName == null || serverName.isBlank()) return;
         long serverMinutes = (days * 24 * 60) + (hours * 60) + minutes;
-        this.serverPlaytimes.put(serverName.trim().toLowerCase(Locale.ROOT), serverMinutes);
+        this.serverPlaytimes.put(normalizeServerKey(serverName), Math.max(0L, serverMinutes));
 
-        long totalSum = 0;
-        for (long mins : this.serverPlaytimes.values()) {
-            totalSum += mins;
+        refreshPlaytimeTotals();
+    }
+
+    /**
+     * Ersetzt die komplette Spielzeit-Tabelle durch einen vollstaendigen
+     * {@code /ontime}-Bericht.
+     *
+     * <p>Im Gegensatz zu {@link #updateServerPlaytime(String, long, long, long)}
+     * werden hier veraltete oder fremde Schluessel (z. B. ein ehemaliger
+     * {@code skyblock}-Eintrag) entfernt. Nur so kann eine zuvor durch fremde
+     * {@code /ontime}-Abfragen aufgeblaehte Summe wieder sinken.</p>
+     *
+     * @param playtimes vollstaendige Zuordnung Servername -&gt; Minuten
+     */
+    public synchronized void replaceServerPlaytimes(Map<String, Long> playtimes) {
+        this.serverPlaytimes.clear();
+        if (playtimes != null) {
+            for (Map.Entry<String, Long> entry : playtimes.entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null) {
+                    continue;
+                }
+                String key = normalizeServerKey(entry.getKey());
+                if (key.isEmpty()) {
+                    continue;
+                }
+                this.serverPlaytimes.put(key, Math.max(0L, entry.getValue()));
+            }
         }
-        this.basePlaytimeMinutes = totalSum;
-        this.playtimeBaseTimestamp = System.currentTimeMillis();
+        if (this.serverPlaytimes.isEmpty()) {
+            this.basePlaytimeMinutes = -1;
+            this.playtimeBaseTimestamp = -1;
+        } else {
+            refreshPlaytimeTotals();
+        }
+    }
+
+    private void refreshPlaytimeTotals() {
+        if (hasSupportedPlaytimeKey()) {
+            this.basePlaytimeMinutes = sumSupportedPlaytimeMinutes();
+            this.playtimeBaseTimestamp = System.currentTimeMillis();
+        } else {
+            this.basePlaytimeMinutes = -1;
+            this.playtimeBaseTimestamp = -1;
+        }
+    }
+
+    private boolean hasSupportedPlaytimeKey() {
+        for (String key : this.serverPlaytimes.keySet()) {
+            if (isSupportedServerKey(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String normalizeServerKey(String serverName) {
+        return serverName == null ? "" : serverName.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Summiert nur die vom HUD unterstuetzten Welten. Weitere Welten (z. B.
+     * {@code Skyblock}) duerfen die Gesamtspielzeit nicht verfaelschen.
+     */
+    private long sumSupportedPlaytimeMinutes() {
+        long total = 0;
+        for (Map.Entry<String, Long> entry : this.serverPlaytimes.entrySet()) {
+            if (isSupportedServerKey(entry.getKey()) && entry.getValue() != null) {
+                total += Math.max(0L, entry.getValue());
+            }
+        }
+        return total;
+    }
+
+    private static boolean isSupportedServerKey(String key) {
+        return "hauptserver".equals(key)
+                || "creative".equals(key)
+                || "eventserver".equals(key)
+                || "mine".equals(key);
     }
 
     public synchronized void clearServerPlaytimes() {
@@ -247,7 +367,7 @@ public final class ArdaniaState {
             case "creative" -> includeCreative;
             case "eventserver" -> includeEventserver;
             case "mine" -> includeMine;
-            default -> includeHauptserver && includeCreative && includeEventserver && includeMine;
+            default -> false;
         };
     }
 
@@ -310,6 +430,46 @@ public final class ArdaniaState {
 
     public synchronized void startSession(long now) {
         this.sessionStartTimestamp = now;
+        if (this.euronenKnown) {
+            this.sessionStartEuronen = this.euronen;
+        }
+        if (this.ardaPointsKnown) {
+            this.sessionStartPoints = this.ardaPoints;
+        }
+    }
+
+    public synchronized BigDecimal getSessionEuronenDelta() {
+        if (!this.euronenKnown || this.sessionStartEuronen == null) {
+            return scale(BigDecimal.ZERO);
+        }
+        return scale(this.euronen.subtract(this.sessionStartEuronen));
+    }
+
+    public synchronized long getSessionPointsDelta() {
+        if (!this.ardaPointsKnown || this.sessionStartPoints < 0) {
+            return 0L;
+        }
+        return this.ardaPoints - this.sessionStartPoints;
+    }
+
+    public synchronized String getFormattedSessionStats(long now) {
+        return getFormattedSessionStats(now, false);
+    }
+
+    public synchronized String getFormattedSessionStats(long now, boolean compact) {
+        BigDecimal delta = getSessionEuronenDelta();
+        String sign = delta.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "";
+        String deltaStr = sign + (compact ? formatCompactMoney(delta) : formatMoney(delta));
+
+        long durationMs = now - this.sessionStartTimestamp;
+        if (durationMs >= 60_000L) {
+            double hours = durationMs / 3_600_000.0;
+            BigDecimal perHour = scale(delta.divide(BigDecimal.valueOf(hours), 2, RoundingMode.HALF_UP));
+            String signPerHour = perHour.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "";
+            String perHourStr = compact ? formatCompactMoney(perHour) : formatMoney(perHour);
+            return deltaStr + " (" + signPerHour + perHourStr + "/h)";
+        }
+        return deltaStr;
     }
 
     public synchronized String getFormattedSessionTime(long now) {
@@ -337,6 +497,8 @@ public final class ArdaniaState {
         this.basePlaytimeMinutes = -1;
         this.playtimeBaseTimestamp = -1;
         this.sessionStartTimestamp = -1;
+        this.sessionStartEuronen = null;
+        this.sessionStartPoints = -1;
         this.lastNonPlaytimeUpdateTimestamp = 0;
         this.lastManualHideTimestamp = 0;
     }
@@ -413,26 +575,22 @@ public final class ArdaniaState {
                         String trimmed = entry.name().trim();
                         int sanitizedLevel = Math.max(0, entry.level());
                         boolean max = entry.isMax() || sanitizedLevel >= 30;
-                        this.jobs.put(trimmed, new JobEntry(trimmed, sanitizedLevel, max));
+                        this.jobs.put(trimmed, new JobEntry(trimmed, sanitizedLevel, max, entry.currentXp(), entry.maxXp()));
                     }
                 }
             }
             if (data.serverPlaytimes != null && !data.serverPlaytimes.isEmpty()) {
                 this.serverPlaytimes.clear();
-                long totalSum = 0;
                 for (Map.Entry<String, Long> entry : data.serverPlaytimes.entrySet()) {
                     if (entry.getKey() != null && entry.getValue() != null && entry.getValue() >= 0) {
-                        String key = entry.getKey().trim().toLowerCase(Locale.ROOT);
-                        long mins = entry.getValue();
-                        this.serverPlaytimes.put(key, mins);
-                        totalSum += mins;
+                        String key = normalizeServerKey(entry.getKey());
+                        if (!key.isEmpty()) {
+                            this.serverPlaytimes.put(key, entry.getValue());
+                        }
                     }
                 }
                 if (!this.serverPlaytimes.isEmpty()) {
-                    this.basePlaytimeMinutes = totalSum;
-                    if (this.playtimeBaseTimestamp <= 0) {
-                        this.playtimeBaseTimestamp = System.currentTimeMillis();
-                    }
+                    refreshPlaytimeTotals();
                 }
             }
         } catch (IOException | JsonParseException e) {
@@ -468,6 +626,37 @@ public final class ArdaniaState {
         DecimalFormat format = new DecimalFormat("#,##0.00", GERMAN_SYMBOLS);
         format.setRoundingMode(RoundingMode.HALF_UP);
         return format.format(value);
+    }
+
+    public static String formatCompactMoney(BigDecimal value) {
+        if (value == null) return "0";
+        double val = value.doubleValue();
+        double abs = Math.abs(val);
+        if (abs >= 1_000_000.0) {
+            return String.format(Locale.GERMANY, "%.1fM", val / 1_000_000.0);
+        } else if (abs >= 1_000.0) {
+            return String.format(Locale.GERMANY, "%.1fk", val / 1_000.0);
+        }
+        return formatMoney(value);
+    }
+
+    public static double parseXpNumber(String raw) {
+        if (raw == null || raw.isBlank()) return 0.0;
+        String clean = raw.trim().replace(" ", "");
+        if (clean.contains(",") && clean.contains(".")) {
+            if (clean.lastIndexOf(',') > clean.lastIndexOf('.')) {
+                clean = clean.replace(".", "").replace(',', '.');
+            } else {
+                clean = clean.replace(",", "");
+            }
+        } else if (clean.contains(",")) {
+            clean = clean.replace(',', '.');
+        }
+        try {
+            return Double.parseDouble(clean);
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 
     public static String formatInteger(long value) {

@@ -193,6 +193,64 @@ class ArdaniaMessageParserTest {
     }
 
     @Test
+    void foreignOntimeBlockIsIgnored() {
+        state.updateServerPlaytime("Hauptserver", 16, 3, 17);
+        state.updateServerPlaytime("Mine", 0, 7, 18);
+        long before = state.getCurrentTotalMinutes();
+
+        String foreignBlock = "Name: LordSandukhan\n" +
+                "Beigetreten am: 12.04.2015 18:03\n" +
+                "Hauptserver: 1384 Tage 19 Stunden 44 Minute\n" +
+                "Creative: 7 Tage 0 Stunden 41 Minute\n" +
+                "Eventserver: 2 Tage 18 Stunden 36 Minute\n" +
+                "Mine: 0 Tage 21 Stunden 50 Minute\n" +
+                "Skyblock: 0 Tage 2 Stunden 34 Minute\n" +
+                "-----------------------------------------------------";
+
+        assertFalse(parser.parse(foreignBlock, false, "PX_Sven"));
+        assertEquals(before, state.getCurrentTotalMinutes());
+        assertEquals("16d 10h 35m", state.getFormattedPlaytime());
+    }
+
+    @Test
+    void fullOntimeBlockPrunesStaleAndUnknownKeys() {
+        state.updateServerPlaytime("Hauptserver", 1, 0, 0);
+        state.updateServerPlaytime("Skyblock", 5, 0, 0);
+        state.updateServerPlaytime("alter-server", 9, 0, 0);
+
+        String ownBlock = "Name: PX_Sven\n" +
+                "Beigetreten am: 23.02.2026 15:01\n" +
+                "Hauptserver: 16 Tage 3 Stunden 17 Minute\n" +
+                "Creative: 0 Tage 0 Stunden 13 Minute\n" +
+                "Eventserver: 0 Tage 0 Stunden 38 Minute\n" +
+                "Mine: 0 Tage 7 Stunden 18 Minute\n" +
+                "Skyblock: 0 Tage 2 Stunden 34 Minute\n" +
+                "-----------------------------------------------------";
+
+        assertTrue(parser.parse(ownBlock, false, "PX_Sven"));
+        // Nur die vier unterstuetzten Welten zaehlen, Skyblock/stale Keys fallen weg.
+        assertEquals(23726, state.getCurrentTotalMinutes());
+        assertEquals("16d 11h 26m", state.getFormattedPlaytime());
+    }
+
+    @Test
+    void singleServerLineDoesNotWipeOtherWorlds() {
+        String ownBlock = "Name: PX_Sven\n" +
+                "Beigetreten am: 23.02.2026 15:01\n" +
+                "Hauptserver: 16 Tage 3 Stunden 17 Minute\n" +
+                "Creative: 0 Tage 0 Stunden 13 Minute\n" +
+                "Eventserver: 0 Tage 0 Stunden 38 Minute\n" +
+                "Mine: 0 Tage 7 Stunden 18 Minute\n" +
+                "-----------------------------------------------------";
+        assertTrue(parser.parse(ownBlock, false, "PX_Sven"));
+
+        assertTrue(parser.parse("Mine: 0 Tage 8 Stunden 0 Minute", false, "PX_Sven"));
+
+        assertEquals(23768, state.getCurrentTotalMinutes());
+        assertEquals("16d 12h 8m", state.getFormattedPlaytime());
+    }
+
+    @Test
     void ontimeSilentSuppression() {
         assertTrue(parser.isSilentServerResponse("-----------------------------------------------------"));
         assertTrue(parser.isSilentServerResponse("Name: PX_Sven"));
@@ -486,5 +544,66 @@ class ArdaniaMessageParserTest {
         assertEquals("ardapoints me", parser.extractFailedCommandFromContext("ardapoints me<--[HIER]"));
         assertEquals("ontime", parser.extractFailedCommandFromContext("ontime<--[HERE]"));
         assertNull(parser.extractFailedCommandFromContext("Unknown or incomplete command. See below for error"));
+    }
+
+    @Test
+    void jobXpParsingAndPercentagesWork() {
+        String jobsStats = "[ArdaniaJobs] Spieler: PX_Sven\n" +
+                "Level 24 for Mobhunter: 2497.42/3120xp\n" +
+                "Level 13 for Farmer: 73.57/1897xp\n" +
+                "Level 22 for Miner: 2199.94/2895xp";
+
+        assertTrue(parser.parse(jobsStats, false));
+
+        List<ArdaniaState.JobEntry> jobs = state.getJobs();
+        assertEquals(3, jobs.size());
+
+        ArdaniaState.JobEntry mobhunter = jobs.stream().filter(j -> j.name().equals("Mobhunter")).findFirst().orElseThrow();
+        assertEquals(24, mobhunter.level());
+        assertEquals(2497.42, mobhunter.currentXp(), 0.01);
+        assertEquals(3120.0, mobhunter.maxXp(), 0.01);
+        assertTrue(mobhunter.hasXpInfo());
+        assertEquals(80, mobhunter.xpPercent()); // 2497.42 / 3120 = 80.04% -> 80%
+        assertEquals("80% [24]", mobhunter.formatBadge(true));
+        assertEquals("[24]", mobhunter.formatBadge(false));
+
+        ArdaniaState.JobEntry farmer = jobs.stream().filter(j -> j.name().equals("Farmer")).findFirst().orElseThrow();
+        assertEquals(13, farmer.level());
+        assertEquals(4, farmer.xpPercent()); // 73.57 / 1897 = 3.87% -> 4%
+        assertEquals("4% [13]", farmer.formatBadge(true));
+
+        ArdaniaState.JobEntry miner = jobs.stream().filter(j -> j.name().equals("Miner")).findFirst().orElseThrow();
+        assertEquals(22, miner.level());
+        assertEquals(76, miner.xpPercent()); // 2199.94 / 2895 = 75.99% -> 76%
+        assertEquals("76% [22]", miner.formatBadge(true));
+    }
+
+    @Test
+    void sessionStatsCalculationAndNumberFormatting() {
+        state.setEuronen(new java.math.BigDecimal("1000.00"));
+        state.setArdaPoints(500);
+
+        long t0 = 1_000_000L;
+        state.startSession(t0);
+
+        assertEquals(new java.math.BigDecimal("0.00"), state.getSessionEuronenDelta());
+        assertEquals(0L, state.getSessionPointsDelta());
+
+        // Geld und Punkte verdienen
+        state.setEuronen(new java.math.BigDecimal("1250.50"));
+        state.setArdaPoints(550);
+
+        assertEquals(new java.math.BigDecimal("250.50"), state.getSessionEuronenDelta());
+        assertEquals(50L, state.getSessionPointsDelta());
+
+        // Nach 1 Stunde (3600s = 3_600_000ms):
+        String stats = state.getFormattedSessionStats(t0 + 3_600_000L);
+        assertTrue(stats.contains("+250,50"));
+        assertTrue(stats.contains("+250,50/h"));
+
+        // Kompakte Zahlen
+        assertEquals("30,2k", ArdaniaState.formatCompactMoney(new java.math.BigDecimal("30214.80")));
+        assertEquals("1,5M", ArdaniaState.formatCompactMoney(new java.math.BigDecimal("1500000.00")));
+        assertEquals("500,00", ArdaniaState.formatCompactMoney(new java.math.BigDecimal("500.00")));
     }
 }

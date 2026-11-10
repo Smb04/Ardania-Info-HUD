@@ -4,6 +4,21 @@ import java.math.BigDecimal;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Regex-basierter Parser fuer Chat-, System- und Actionbar-Nachrichten auf Ardania.de.
+ *
+ * <p>Verarbeitet:</p>
+ * <ul>
+ *   <li>Absoluten Kontostand (z. B. aus {@code /geld}, {@code /money}, {@code /konto})</li>
+ *   <li>Inkrementelle Einnahmen (z. B. Job-Actionbar {@code +0,02 Euronen})</li>
+ *   <li>Bank-Transaktionen (Gutschriften, Abzuege, Ueberweisungen)</li>
+ *   <li>ArdaPoints (Punktestand und Voteziel-Benachrichtigungen)</li>
+ *   <li>Berufe & Job-Level (z. B. {@code Miner [Lv. 24]} oder {@code [MAX]})</li>
+ *   <li>Spielzeit-Meldungen (Tage, Stunden, Minuten pro Unterserver aus {@code /ontime})</li>
+ *   <li>Server-Tags aus Tablist-Namen (z. B. {@code [H]}, {@code [F]}, {@code [M]})</li>
+ *   <li>Fehlermeldungen unbekannter Befehle zur automatischen Unterdrueckung</li>
+ * </ul>
+ */
 public final class ArdaniaMessageParser {
 
     private static final String NUMBER = "(\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{1,2})?|\\d+(?:[.,]\\d{1,2})?)";
@@ -50,7 +65,7 @@ public final class ArdaniaMessageParser {
             "(?iu)\\[ArdaniaJobs\\]");
 
     private static final Pattern JOBS_STATS_LINE = Pattern.compile(
-            "(?imu)(?:[|:;#=\\-\\s]*)(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")\\s*(?::|$)");
+            "(?imu)(?:[|:;#=\\-\\s]*)(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")\\s*(?::(?:\\s*([0-9.,]+)\\s*/\\s*([0-9.,]+)(?:\\s*xp)?)?|$)");
 
     private static final Pattern JOB_PARENTHESIZED = Pattern.compile(
             "(?iu)(" + LETTERS + ")\\s*\\(\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)\\s*\\)");
@@ -59,13 +74,28 @@ public final class ArdaniaMessageParser {
             "(?iu)(?:Job|Beruf)\\s*:\\s*(" + LETTERS + ")\\s*[-:|]?\\s*(?:(?:Lv|Lvl|Level|Stufe)\\.?\\s*:?\\s*)?(\\d+|MAX)");
 
     private static final Pattern UNKNOWN_COMMAND_ERROR = Pattern.compile(
-            "(?iu)(?:Unknown\\s+(?:or\\s+incomplete\\s+)?command|Unbekannter\\s+(?:oder\\s+unvollst(?:\u00E4|ae)ndiger\\s+)?Befehl|Befehl\\s+unbekannt|See\\s+below\\s+for\\s+error|Siehe\\s+unten\\s+f(?:\u00FC|ue)r|Comando\\s+desconocido|Commande\\s+inconnue|<--\\[[^\\]]+\\]|(?:^|\\s)(?:geld|money|ardapoints(?:\\s+me)?|jobs(?:\\s+stats)?|ontime)<--|command\\s+does\\s+not\\s+exist|An\\s+error\\s+occurred\\s+while\\s+executing|befehle?\\b.*\\bnicht\\b|\\bnicht\\b.*\\bbefehle?\\b|dieser\\s+welt\\s+nicht|diesem\\s+server\\s+nicht|hier\\s+nicht\\s+(?:benutzen|verwenden|nutzen|erlaubt|verf\u00FCgbar|verfuegbar|m\u00F6glich|moeglich|ausf\u00FChren|ausfuehren)|keine\\s+(?:berechtigung|rechte)|no\\s+permission|ardapoints\\s+me|\\[ardania\\]\\s*fehler|fehler:\\s*der\\s*befehl)");
+            "(?iu)(?:Unknown\\s+(?:or\\s+incomplete\\s+)?command|Unbekannter\\s+(?:oder\\s+unvollst(?:\u00E4|ae)ndiger\\s+)?Befehl|Befehl\\s+unbekannt|befehl\\s+(?:wurde\\s+)?nicht\\s+gefunden|kein\\s+g(?:\u00FC|ue)ltiger\\s+befehl|See\\s+below\\s+for\\s+error|Siehe\\s+unten\\s+f(?:\u00FC|ue)r|Comando\\s+desconocido|Commande\\s+inconnue|<--\\[[^\\]]+\\]|(?:^|\\s)(?:geld|money|ardapoints(?:\\s+me)?|jobs(?:\\s+stats)?|ontime)<--|command\\s+does\\s+not\\s+exist|An\\s+error\\s+occurred\\s+while\\s+executing|dieser\\s+welt\\s+nicht|diesem\\s+server\\s+nicht|hier\\s+nicht\\s+(?:benutzen|verwenden|nutzen|erlaubt|verf\u00FCgbar|verfuegbar|m\u00F6glich|moeglich|ausf\u00FChren|ausfuehren|existiert)|existiert\\s+hier\\s+nicht|ardapoints\\s+me|fehler:\\s*der\\s*befehl)");
 
+    /**
+     * Eine Zeile eines {@code /ontime}-Berichts. Bewusst an den Zeilenanfang und
+     * das Zeilenende gebunden, damit normale Chatnachrichten (z. B.
+     * "Ich bin Mine: 3 Stunden ...") nicht als Spielzeit interpretiert werden.
+     */
     private static final Pattern ONTIME_SERVER_LINE = Pattern.compile(
-            "(?iu)(?:^|\\n|\\r|\\s*)([\\p{L}\\-]+):\\s*(?:(\\d+)\\s*Tage?)?\\s*(?:(\\d+)\\s*Stunden?)?\\s*(?:(\\d+)\\s*Minute(?:n)?)?");
+            "(?im)^[\\p{Z}\\s]*([\\p{L}\\-]+)[\\p{Z}\\s]*:[\\p{Z}\\s]*"
+                    + "(?:(\\d+)\\s*Tage?)?\\s*(?:(\\d+)\\s*Stunden?)?\\s*(?:(\\d+)\\s*Minute(?:n)?)?"
+                    + "[\\p{Z}\\s]*$");
 
     private static final Pattern ONTIME_LINE_SUPPRESS = Pattern.compile(
             "(?iu)(?:[-=~_]{4,}|Name:\\s*|Beigetreten\\s+am:\\s*|Hauptserver:|Mine:|Creative:|Eventserver:)");
+
+    /** Kopfzeilen eines vollstaendigen {@code /ontime}-Berichts. */
+    private static final Pattern ONTIME_BLOCK_HEADER = Pattern.compile(
+            "(?im)(?:^[\\p{Z}\\s]*Name[\\p{Z}\\s]*:|Beigetreten[\\p{Z}\\s]+am[\\p{Z}\\s]*:|^[\\p{Z}\\s]*[-=~_]{10,}[\\p{Z}\\s]*$)");
+
+    /** Spielername aus der {@code Name:}-Zeile eines {@code /ontime}-Berichts. */
+    private static final Pattern ONTIME_NAME_LINE = Pattern.compile(
+            "(?im)^[\\p{Z}\\s]*Name[\\p{Z}\\s]*:[\\p{Z}\\s]*([\\p{L}\\d_]{1,32})[\\p{Z}\\s]*$");
 
     private final ArdaniaState state;
 
@@ -74,6 +104,20 @@ public final class ArdaniaMessageParser {
     }
 
     public boolean parse(String rawMessage, boolean overlay) {
+        return parse(rawMessage, overlay, null);
+    }
+
+    /**
+     * Parst eine eingehende Nachricht.
+     *
+     * @param rawMessage         Roher Nachrichteninhalt
+     * @param overlay            true, wenn die Nachricht aus der Actionbar stammt
+     * @param expectedPlayerName Name des lokalen Spielers. Wird ein
+     *                           {@code /ontime}-Bericht fuer einen anderen Spieler
+     *                           erkannt, wird er komplett ignoriert.
+     * @return true, wenn mindestens ein Wert uebernommen wurde
+     */
+    public boolean parse(String rawMessage, boolean overlay, String expectedPlayerName) {
         if (rawMessage == null || rawMessage.isBlank()) {
             return false;
         }
@@ -82,7 +126,7 @@ public final class ArdaniaMessageParser {
         boolean changed = parseMoney(message);
         changed |= parseArdaPoints(message);
         changed |= parseJob(message);
-        changed |= parseOntime(message);
+        changed |= parseOntime(message, expectedPlayerName);
         return changed;
     }
 
@@ -144,6 +188,19 @@ public final class ArdaniaMessageParser {
         if (m.contains("ardapoints")) return "ardapoints me";
         if (m.contains("ontime")) return "ontime";
         return null;
+    }
+
+    /**
+     * Prueft, ob eine Brigadier-Fehlermeldung explizit auf einen fremden (nicht vom Mod stammenden)
+     * Befehl hinweist (z. B. {@code ban<--[HERE]} oder {@code tp<--[HIER]}).
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return true, falls ein Brigadier-Fehlerkontext fuer einen fremden Befehl vorliegt
+     */
+    public boolean hasForeignCommandErrorContext(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return false;
+        String m = normalize(rawMessage).toLowerCase(java.util.Locale.ROOT);
+        return m.contains("<--") && extractFailedCommandFromContext(rawMessage) == null;
     }
 
     public boolean isActionBarIncome(String rawMessage) {
@@ -245,7 +302,7 @@ public final class ArdaniaMessageParser {
 
         Matcher statsMatcher = JOBS_STATS_LINE.matcher(message);
         while (statsMatcher.find()) {
-            matched |= setJob(statsMatcher.group(2), statsMatcher.group(1));
+            matched |= setJob(statsMatcher.group(2), statsMatcher.group(1), statsMatcher.group(3), statsMatcher.group(4));
         }
         if (matched) {
             return true;
@@ -253,37 +310,44 @@ public final class ArdaniaMessageParser {
 
         Matcher m = JOB_PARENTHESIZED.matcher(message);
         if (m.find()) {
-            return setJob(m.group(1), m.group(2));
+            return setJob(m.group(1), m.group(2), null, null);
         }
 
         m = JOB_LABELED.matcher(message);
         if (m.find()) {
-            return setJob(m.group(1), m.group(2));
+            return setJob(m.group(1), m.group(2), null, null);
         }
 
         return false;
     }
 
     private boolean setJob(String name, String levelOrMax) {
+        return setJob(name, levelOrMax, null, null);
+    }
+
+    private boolean setJob(String name, String levelOrMax, String curXpStr, String maxXpStr) {
         if (name == null || name.isBlank() || levelOrMax == null) {
             return false;
         }
+        double curXp = ArdaniaState.parseXpNumber(curXpStr);
+        double maxXp = ArdaniaState.parseXpNumber(maxXpStr);
+
         if ("MAX".equalsIgnoreCase(levelOrMax.trim())) {
-            this.state.addOrUpdateJob(name.trim(), 30, true);
+            this.state.addOrUpdateJob(name.trim(), 30, true, curXp, maxXp);
             return true;
         }
         try {
             int level = Integer.parseInt(levelOrMax.trim());
-            this.state.addOrUpdateJob(name.trim(), level, level >= 30);
+            this.state.addOrUpdateJob(name.trim(), level, level >= 30, curXp, maxXp);
             return true;
         } catch (NumberFormatException e) {
             return false;
         }
     }
 
-    private boolean parseOntime(String message) {
+    private boolean parseOntime(String message, String expectedPlayerName) {
+        java.util.LinkedHashMap<String, Long> entries = new java.util.LinkedHashMap<>();
         Matcher m = ONTIME_SERVER_LINE.matcher(message);
-        boolean matchedAny = false;
 
         while (m.find()) {
             // Zeilen ohne Zeitangabe (z. B. "Name: PX_Sven") ignorieren
@@ -295,12 +359,59 @@ public final class ArdaniaMessageParser {
             long days = m.group(2) != null ? Long.parseLong(m.group(2)) : 0;
             long hours = m.group(3) != null ? Long.parseLong(m.group(3)) : 0;
             long minutes = m.group(4) != null ? Long.parseLong(m.group(4)) : 0;
-
-            this.state.updateServerPlaytime(serverName, days, hours, minutes);
-            matchedAny = true;
+            long totalMinutes = (days * 24 * 60) + (hours * 60) + minutes;
+            entries.put(serverName.trim().toLowerCase(java.util.Locale.ROOT), totalMinutes);
         }
 
-        return matchedAny;
+        if (entries.isEmpty()) {
+            return false;
+        }
+
+        // Fremdspieler-Abfrage (/ontime <Spieler>) niemals in den eigenen Cache
+        // uebernehmen. Ohne diese Pruefung wuerde z. B. "/ontime LordSandukhan"
+        // die eigenen Spielzeiten mit 1384 Tagen ueberschreiben.
+        String reportedName = extractOntimePlayerNameFromNormalized(message);
+        if (reportedName != null && expectedPlayerName != null && !expectedPlayerName.isBlank()
+                && !reportedName.equalsIgnoreCase(expectedPlayerName.trim())) {
+            return false;
+        }
+
+        boolean fullBlock = entries.size() > 1 || ONTIME_BLOCK_HEADER.matcher(message).find();
+        if (fullBlock) {
+            // Vollstaendiger Bericht: veraltete Schluessel verschwinden, die Summe
+            // entspricht wieder exakt der Serverantwort.
+            this.state.replaceServerPlaytimes(entries);
+        } else {
+            // Einzelne Zeile (z. B. aus einem aufgeteilten Bericht): nur upserten,
+            // damit andere Welten nicht verloren gehen.
+            java.util.Map.Entry<String, Long> only = entries.entrySet().iterator().next();
+            long totalMinutes = only.getValue();
+            this.state.updateServerPlaytime(
+                    only.getKey(),
+                    totalMinutes / (24 * 60),
+                    (totalMinutes % (24 * 60)) / 60,
+                    totalMinutes % 60);
+        }
+        return true;
+    }
+
+    /**
+     * Liest den Spielernamen aus der {@code Name:}-Zeile eines
+     * {@code /ontime}-Berichts.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return Spielername oder {@code null}, wenn keine Name-Zeile vorhanden ist
+     */
+    public String extractOntimePlayerName(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) {
+            return null;
+        }
+        return extractOntimePlayerNameFromNormalized(normalize(rawMessage));
+    }
+
+    private static String extractOntimePlayerNameFromNormalized(String message) {
+        Matcher m = ONTIME_NAME_LINE.matcher(message);
+        return m.find() ? m.group(1).trim() : null;
     }
 
     static String normalize(String raw) {

@@ -5,6 +5,16 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+/**
+ * Dreistufiger Konfigurations-Bildschirm fuer Minecraft 1.21.x (ModMenu & /ardaniahud config).
+ *
+ * <p>Bietet Tabs fuer:</p>
+ * <ul>
+ *   <li>Allgemein (HUD ein/aus, Transparenz, Skalierung, 6 Snap-Positionen, Job-Fortschrittsstil)</li>
+ *   <li>Spielzeit & Welten (Server-Filter, kombinierte/einzelne Anzeige, Sichtbarkeitsprofile)</li>
+ *   <li>Sync & Zeilen (Auto-Sync-Optionen, Abfrage-Intervalle, Zeilenreihenfolge nach oben/unten)</li>
+ * </ul>
+ */
 public final class ArdaniaConfigScreen extends Screen {
 
     private enum ConfigTab {
@@ -98,6 +108,7 @@ public final class ArdaniaConfigScreen extends Screen {
         addRenderableWidget(Button.builder(
                 getPositionText(),
                 btn -> {
+                    config.useCustomPosition = false;
                     config.position = switch (config.position) {
                         case MIDDLE_RIGHT -> ArdaniaConfig.HudPosition.TOP_RIGHT;
                         case TOP_RIGHT -> ArdaniaConfig.HudPosition.BOTTOM_RIGHT;
@@ -107,6 +118,39 @@ public final class ArdaniaConfigScreen extends Screen {
                         case BOTTOM_LEFT -> ArdaniaConfig.HudPosition.MIDDLE_RIGHT;
                     };
                     btn.setMessage(getPositionText());
+                    ArdaniaConfig.save();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
+
+        addRenderableWidget(Button.builder(
+                getScaleText(),
+                btn -> {
+                    config.hudScale = switch (Math.round(config.hudScale * 100.0f)) {
+                        case 75 -> 0.9f;
+                        case 90 -> 1.0f;
+                        case 100 -> 1.1f;
+                        case 110 -> 1.25f;
+                        case 125 -> 0.75f;
+                        default -> 1.0f;
+                    };
+                    btn.setMessage(getScaleText());
+                    ArdaniaConfig.save();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
+
+        addRenderableWidget(Button.builder(
+                getOpacityText(),
+                btn -> {
+                    config.backgroundOpacity = switch ((int) Math.round(config.backgroundOpacity * 100.0f)) {
+                        case 0 -> 0.25f;
+                        case 25 -> 0.50f;
+                        case 50 -> 0.75f;
+                        case 75 -> 1.0f;
+                        default -> 0.0f;
+                    };
+                    btn.setMessage(getOpacityText());
                     ArdaniaConfig.save();
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
@@ -127,6 +171,17 @@ public final class ArdaniaConfigScreen extends Screen {
                     this.init();
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
+
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.compact_numbers", config.compactNumbers),
+                btn -> {
+                    config.compactNumbers = !config.compactNumbers;
+                    btn.setMessage(getToggleText("config.ardania_hud.compact_numbers", config.compactNumbers));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
 
         int yRight = startY;
 
@@ -161,13 +216,39 @@ public final class ArdaniaConfigScreen extends Screen {
         yRight += spacing;
 
         addRenderableWidget(Button.builder(
-                getToggleText("config.ardania_hud.show_session", config.showSessionTimer),
+                getJobProgressStyleText(),
                 btn -> {
-                    config.showSessionTimer = !config.showSessionTimer;
-                    btn.setMessage(getToggleText("config.ardania_hud.show_session", config.showSessionTimer));
+                    config.jobProgressStyle = switch (config.jobProgressStyle) {
+                        case PERCENT -> ArdaniaConfig.JobProgressStyle.BAR;
+                        case BAR -> ArdaniaConfig.JobProgressStyle.NONE;
+                        case NONE -> ArdaniaConfig.JobProgressStyle.PERCENT;
+                    };
+                    config.showJobXp = (config.jobProgressStyle != ArdaniaConfig.JobProgressStyle.NONE);
+                    btn.setMessage(getJobProgressStyleText());
                     ArdaniaConfig.save();
                 }
         ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        addRenderableWidget(Button.builder(
+                getToggleText("config.ardania_hud.show_session_stats", config.showSessionStats),
+                btn -> {
+                    config.showSessionStats = !config.showSessionStats;
+                    btn.setMessage(getToggleText("config.ardania_hud.show_session_stats", config.showSessionStats));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
+
+        addRenderableWidget(Button.builder(
+                ArdaniaI18n.translate("config.ardania_hud.open_editor"),
+                btn -> {
+                    if (this.minecraft != null) {
+                        this.minecraft.setScreen(new ArdaniaHudEditorScreen(this));
+                    }
+                }
+        ).bounds(rightX, yRight, colWidth, buttonHeight).build());
+        yRight += spacing;
 
         return Math.max(yLeft, yRight) + buttonHeight;
     }
@@ -203,6 +284,49 @@ public final class ArdaniaConfigScreen extends Screen {
                     ArdaniaConfig.save();
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
+
+        addRenderableWidget(Button.builder(
+                getServerVisibilityText("config.ardania_hud.visibility.creative", config.visibilityCreative),
+                btn -> {
+                    config.visibilityCreative = switch (config.visibilityCreative) {
+                        case HIDE -> ArdaniaConfig.ServerVisibility.TAB_ONLY;
+                        case TAB_ONLY -> ArdaniaConfig.ServerVisibility.SHOW;
+                        case SHOW -> ArdaniaConfig.ServerVisibility.HIDE;
+                    };
+                    btn.setMessage(getServerVisibilityText("config.ardania_hud.visibility.creative", config.visibilityCreative));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
+
+        addRenderableWidget(Button.builder(
+                getServerVisibilityText("config.ardania_hud.visibility.event", config.visibilityEventserver),
+                btn -> {
+                    config.visibilityEventserver = switch (config.visibilityEventserver) {
+                        case TAB_ONLY -> ArdaniaConfig.ServerVisibility.SHOW;
+                        case SHOW -> ArdaniaConfig.ServerVisibility.HIDE;
+                        case HIDE -> ArdaniaConfig.ServerVisibility.TAB_ONLY;
+                    };
+                    btn.setMessage(getServerVisibilityText("config.ardania_hud.visibility.event", config.visibilityEventserver));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
+
+        addRenderableWidget(Button.builder(
+                getServerVisibilityText("config.ardania_hud.visibility.mine", config.visibilityMine),
+                btn -> {
+                    config.visibilityMine = switch (config.visibilityMine) {
+                        case SHOW -> ArdaniaConfig.ServerVisibility.TAB_ONLY;
+                        case TAB_ONLY -> ArdaniaConfig.ServerVisibility.HIDE;
+                        case HIDE -> ArdaniaConfig.ServerVisibility.SHOW;
+                    };
+                    btn.setMessage(getServerVisibilityText("config.ardania_hud.visibility.mine", config.visibilityMine));
+                    ArdaniaConfig.save();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
 
         int yRight = startY;
 
@@ -314,6 +438,24 @@ public final class ArdaniaConfigScreen extends Screen {
                     ArdaniaConfig.save();
                 }
         ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
+        yLeft += spacing;
+
+        addRenderableWidget(Button.builder(
+                getServerOverrideText(),
+                btn -> {
+                    config.serverTypeOverride = switch (config.serverTypeOverride) {
+                        case AUTO -> ArdaniaConfig.ServerOverride.HAUPTSERVER;
+                        case HAUPTSERVER -> ArdaniaConfig.ServerOverride.FALLBACK;
+                        case FALLBACK -> ArdaniaConfig.ServerOverride.MINE;
+                        case MINE -> ArdaniaConfig.ServerOverride.EVENT;
+                        case EVENT -> ArdaniaConfig.ServerOverride.CREATIVE;
+                        case CREATIVE -> ArdaniaConfig.ServerOverride.AUTO;
+                    };
+                    btn.setMessage(getServerOverrideText());
+                    ArdaniaConfig.save();
+                    ArdaniaState.getInstance().notifyStatUpdated();
+                }
+        ).bounds(leftX, yLeft, colWidth, buttonHeight).build());
 
         int yRight = startY;
 
@@ -380,16 +522,61 @@ public final class ArdaniaConfigScreen extends Screen {
         return getToggleText("config.ardania_hud.enabled", config.enabled);
     }
 
+    private Component getOpacityText() {
+        int percent = Math.round(config.backgroundOpacity * 100.0f);
+        return ArdaniaI18n.translate("config.ardania_hud.opacity")
+                .append(": " + percent + "%");
+    }
+
     private Component getLanguageText() {
         return ArdaniaI18n.translate("config.ardania_hud.language")
                 .append(": ")
                 .append(ArdaniaI18n.translate("config.ardania_hud.language." + config.language.name().toLowerCase()));
     }
 
+    private Component getServerOverrideText() {
+        return ArdaniaI18n.translate("config.ardania_hud.server_override")
+                .append(": ")
+                .append(ArdaniaI18n.translate(
+                        "config.ardania_hud.server_override." + config.serverTypeOverride.name().toLowerCase()));
+    }
+
+    private Component getScaleText() {
+        int percent = Math.round(config.hudScale * 100.0f);
+        return ArdaniaI18n.translate("config.ardania_hud.scale").append(": " + percent + "%");
+    }
+
     private Component getPositionText() {
+        if (config.useCustomPosition) {
+            return ArdaniaI18n.translate("config.ardania_hud.position")
+                    .append(": ")
+                    .append(ArdaniaI18n.translate("config.ardania_hud.position.custom"));
+        }
         return ArdaniaI18n.translate("config.ardania_hud.position")
                 .append(": ")
                 .append(ArdaniaI18n.translate("config.ardania_hud.position." + config.position.name().toLowerCase()));
+    }
+
+    private Component getJobProgressStyleText() {
+        String modeKey = switch (config.jobProgressStyle) {
+            case PERCENT -> "config.ardania_hud.job_xp.percent";
+            case BAR -> "config.ardania_hud.job_xp.bar";
+            case NONE -> "config.ardania_hud.off";
+        };
+        return ArdaniaI18n.translate("config.ardania_hud.show_job_xp")
+                .append(": ")
+                .append(ArdaniaI18n.translate(modeKey));
+    }
+
+    private Component getServerVisibilityText(String worldKey, ArdaniaConfig.ServerVisibility visibility) {
+        String modeKey = switch (visibility) {
+            case SHOW -> "config.ardania_hud.visibility.show";
+            case TAB_ONLY -> "config.ardania_hud.visibility.tab_only";
+            case HIDE -> "config.ardania_hud.visibility.hide";
+        };
+        return ArdaniaI18n.translate(worldKey)
+                .append(": ")
+                .append(ArdaniaI18n.translate(modeKey));
     }
 
     private Component getMoneyIntervalText() {

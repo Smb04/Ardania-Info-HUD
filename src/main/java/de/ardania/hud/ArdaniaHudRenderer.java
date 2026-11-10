@@ -1,34 +1,24 @@
 package de.ardania.hud;
 
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.network.chat.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * HUD-Renderer fuer moderne Minecraft-Versionen (MC 26.x) ueber Fabric HudElement.
+ *
+ * <p>Zeichnet das Scoreboard-HUD-Overlay, berechnet weiche Kanten-Einblendungen,
+ * verarbeitet dynamische Skalierung ueber den PoseStack und prueft
+ * weltbezogene Sichtbarkeitsprofile.</p>
+ */
 public final class ArdaniaHudRenderer implements HudElement {
 
-    private static final int EDGE_MARGIN = 3;
-    private static final int PADDING_X = 4;
-    private static final int PADDING_Y = 3;
-    private static final int LINE_HEIGHT = 10;
-    private static final int RIGHT_ALIGN_GAP = 6;
-
-    private static final int BACKGROUND_COLOR = 0x60000000;
-    private static final int HEADER_BG_COLOR = 0x70000000;
     private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final float SLIDE_SPEED = 3.5f;
-
-    private record HudLine(Component left, Component right, boolean centered) {
-        HudLine(Component single) {
-            this(single, null, false);
-        }
-    }
 
     private final ArdaniaState state;
     private float slideProgress = 1.0f;
@@ -44,6 +34,10 @@ public final class ArdaniaHudRenderer implements HudElement {
     public void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
         Minecraft client = Minecraft.getInstance();
         ArdaniaConfig config = ArdaniaConfig.getInstance();
+
+        if (client.gui.screen() instanceof ArdaniaHudEditorScreen) {
+            return;
+        }
 
         if (client.gui.hud.isHidden() || client.player == null || !ArdaniaClientMod.isOnArdania(client)) {
             this.slideProgress = 0.0f;
@@ -77,8 +71,11 @@ public final class ArdaniaHudRenderer implements HudElement {
 
         boolean tabActive = isTabDisplayActive(config.showOnTab, tabDown, this.tabPressStartTime, now, displayDurationMs);
 
+        ArdaniaSyncManager.ServerType serverType = ArdaniaSyncManager.getInstance().getCurrentServerType();
+        boolean visibleOnServer = HudLayout.isVisibleOnServer(config, serverType, tabDown || tabActive);
+
         float targetProgress;
-        if (!config.enabled) {
+        if (!config.enabled || !visibleOnServer) {
             targetProgress = 0.0f;
         } else if (!config.autoHide) {
             targetProgress = 1.0f;
@@ -101,132 +98,56 @@ public final class ArdaniaHudRenderer implements HudElement {
         }
 
         Font font = client.font;
-        List<HudLine> lines = buildLines(config, now);
+        List<HudLayout.LineSpec> lines = HudLayout.buildLines(this.state, config, now);
         if (lines.isEmpty()) {
             return;
         }
 
-        int maxTextWidth = 0;
-        for (HudLine line : lines) {
-            int lineWidth = font.width(line.left());
-            if (line.right() != null) {
-                lineWidth += RIGHT_ALIGN_GAP + font.width(line.right());
-            }
-            maxTextWidth = Math.max(maxTextWidth, lineWidth);
-        }
+        float scale = Math.clamp(config.hudScale, 0.7f, 1.5f);
+        int scaledWidth = Math.max(1, Math.round(graphics.guiWidth() / scale));
+        int scaledHeight = Math.max(1, Math.round(graphics.guiHeight() / scale));
 
-        int boxWidth = maxTextWidth + (PADDING_X * 2);
-        int boxHeight = (lines.size() * LINE_HEIGHT) + (PADDING_Y * 2);
+        HudLayout.LayoutResult layout = HudLayout.calculate(
+                lines,
+                config,
+                this.slideProgress,
+                scaledWidth,
+                scaledHeight,
+                font::width
+        );
 
-        int screenWidth = graphics.guiWidth();
-        int screenHeight = graphics.guiHeight();
+        int alpha = (int) (Math.clamp(config.backgroundOpacity, 0.0f, 1.0f) * 255.0f);
+        int bgColor = (alpha << 24) & 0xFF000000;
+        int headerAlpha = Math.min(255, alpha + 0x15);
+        int headerBgColor = (headerAlpha << 24) & 0xFF000000;
 
-        // Smoothstep-Easing fuer die horizontale Slide-Animation (links oder rechts)
-        float eased = this.slideProgress * this.slideProgress * (3.0f - 2.0f * this.slideProgress);
-        int startX = config.position.isLeft()
-                ? (int) ((eased * (boxWidth + EDGE_MARGIN)) - boxWidth)
-                : (int) (screenWidth - (eased * (boxWidth + EDGE_MARGIN)));
-        int startY = switch (config.position) {
-            case TOP_RIGHT, TOP_LEFT -> 20;
-            case BOTTOM_RIGHT, BOTTOM_LEFT -> screenHeight - boxHeight - 20;
-            case MIDDLE_RIGHT, MIDDLE_LEFT -> (screenHeight - boxHeight) / 2;
-        };
+        graphics.pose().pushMatrix();
+        graphics.pose().scale(scale, scale);
+        try {
+            graphics.fill(layout.boxX(), layout.boxY(), layout.boxX() + layout.boxWidth(), layout.boxY() + layout.boxHeight(), bgColor);
+            graphics.fill(layout.boxX(), layout.boxY(), layout.boxX() + layout.boxWidth(), layout.boxY() + layout.headerHeight(), headerBgColor);
 
-        graphics.fill(startX, startY, startX + boxWidth, startY + boxHeight, BACKGROUND_COLOR);
-        graphics.fill(startX, startY, startX + boxWidth, startY + LINE_HEIGHT + PADDING_Y, HEADER_BG_COLOR);
-
-        int currentY = startY + PADDING_Y;
-        for (HudLine line : lines) {
-            if (line.centered()) {
-                int centerX = startX + (boxWidth - font.width(line.left())) / 2;
-                graphics.text(font, line.left(), centerX, currentY, TEXT_COLOR, true);
-            } else {
-                graphics.text(font, line.left(), startX + PADDING_X, currentY, TEXT_COLOR, true);
-                if (line.right() != null) {
-                    int rightX = startX + boxWidth - PADDING_X - font.width(line.right());
-                    graphics.text(font, line.right(), rightX, currentY, TEXT_COLOR, true);
+            for (HudLayout.RenderableBar bar : layout.bars()) {
+                graphics.fill(bar.x(), bar.y(), bar.x() + bar.width(), bar.y() + bar.height(), bar.trackColor());
+                int filledWidth = (int) Math.round(bar.width() * Math.clamp(bar.fillRatio(), 0.0f, 1.0f));
+                if (filledWidth > 0) {
+                    graphics.fill(bar.x(), bar.y(), bar.x() + filledWidth, bar.y() + bar.height(), bar.fillColor());
                 }
             }
-            currentY += LINE_HEIGHT;
-        }
-    }
 
-    private List<HudLine> buildLines(ArdaniaConfig config, long now) {
-        List<HudLine> lines = new ArrayList<>();
-
-        lines.add(new HudLine(Component.literal("ARDANIA").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), null, true));
-
-        if (config.showMoney) {
-            String money = this.state.isEuronenKnown() ? this.state.getFormattedEuronen() : "?";
-            lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.money").append(": ").withStyle(ChatFormatting.WHITE)
-                    .append(Component.literal(money).withStyle(ChatFormatting.GOLD))));
-        }
-
-        if (config.showPoints) {
-            lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.points").append(": ").withStyle(ChatFormatting.WHITE)
-                    .append(Component.literal(this.state.getFormattedArdaPoints()).withStyle(ChatFormatting.AQUA))));
-        }
-
-        if (config.showPlaytime) {
-            if (config.combinePlaytime) {
-                lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.playtime").append(": ").withStyle(ChatFormatting.WHITE)
-                        .append(Component.literal(this.state.getFormattedPlaytime(config)).withStyle(ChatFormatting.LIGHT_PURPLE))));
-            } else {
-                List<ArdaniaState.ServerPlaytimeEntry> selectedServers = this.state.getSelectedServerPlaytimes(config);
-                if (selectedServers.isEmpty()) {
-                    lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.playtime").append(": ").withStyle(ChatFormatting.WHITE)
-                            .append(Component.literal("0m").withStyle(ChatFormatting.LIGHT_PURPLE))));
-                } else if (selectedServers.size() == 1) {
-                    ArdaniaState.ServerPlaytimeEntry s = selectedServers.getFirst();
-                    lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.playtime")
-                            .append(" (" + s.displayName() + "): ").withStyle(ChatFormatting.WHITE)
-                            .append(Component.literal(s.formattedTime()).withStyle(ChatFormatting.LIGHT_PURPLE))));
+            for (HudLayout.RenderableLine line : layout.lines()) {
+                if (line.centered()) {
+                    graphics.text(font, line.left(), line.leftX(), line.y(), TEXT_COLOR, true);
                 } else {
-                    lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.playtime").append(":").withStyle(ChatFormatting.WHITE)));
-                    for (ArdaniaState.ServerPlaytimeEntry s : selectedServers) {
-                        lines.add(new HudLine(
-                                Component.literal(" " + s.displayName() + ":").withStyle(ChatFormatting.GRAY),
-                                Component.literal(s.formattedTime()).withStyle(ChatFormatting.LIGHT_PURPLE),
-                                false
-                        ));
+                    graphics.text(font, line.left(), line.leftX(), line.y(), TEXT_COLOR, true);
+                    if (line.right() != null) {
+                        graphics.text(font, line.right(), line.rightX(), line.y(), TEXT_COLOR, true);
                     }
                 }
             }
+        } finally {
+            graphics.pose().popMatrix();
         }
-
-        if (config.showSessionTimer) {
-            lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.session").append(": ").withStyle(ChatFormatting.WHITE)
-                    .append(Component.literal(this.state.getFormattedSessionTime(now)).withStyle(ChatFormatting.YELLOW))));
-        }
-
-        if (config.showJobs) {
-            List<ArdaniaState.JobEntry> jobList = this.state.getJobs();
-            if (jobList.isEmpty()) {
-                lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.job").append(": ").withStyle(ChatFormatting.WHITE)
-                        .append(Component.literal("?").withStyle(ChatFormatting.DARK_GRAY))));
-            } else if (jobList.size() == 1) {
-                ArdaniaState.JobEntry j = jobList.getFirst();
-                ChatFormatting levelColor = j.isMax() ? ChatFormatting.GOLD : ChatFormatting.GRAY;
-                lines.add(new HudLine(
-                        ArdaniaI18n.translate("hud.ardania_hud.job").append(": ").withStyle(ChatFormatting.WHITE)
-                                .append(Component.literal(j.name()).withStyle(ChatFormatting.GREEN)),
-                        Component.literal("[" + j.displayLevel() + "]").withStyle(levelColor),
-                        false
-                ));
-            } else {
-                lines.add(new HudLine(ArdaniaI18n.translate("hud.ardania_hud.jobs").append(":").withStyle(ChatFormatting.WHITE)));
-                for (ArdaniaState.JobEntry j : jobList) {
-                    ChatFormatting levelColor = j.isMax() ? ChatFormatting.GOLD : ChatFormatting.GRAY;
-                    lines.add(new HudLine(
-                            Component.literal(" ").append(Component.literal(j.name()).withStyle(ChatFormatting.GREEN)),
-                            Component.literal("[" + j.displayLevel() + "]").withStyle(levelColor),
-                            false
-                    ));
-                }
-            }
-        }
-
-        return lines;
     }
 
     public boolean isShowing(long now) {

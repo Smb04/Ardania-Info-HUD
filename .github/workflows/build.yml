@@ -1,14 +1,29 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+# Baut und testet die Mod bei jedem Push und Pull Request fuer alle
+# Minecraft-Targets aus build-targets.json (gleiche Quelle wie scripts/build-all.ps1).
 
 name: build
 on: [pull_request, push]
 
 jobs:
-  build:
+  targets:
     runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: read build targets
+        id: read
+        run: echo "matrix=$(jq -c . build-targets.json)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: targets
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    name: build (${{ matrix.target.id }})
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
@@ -21,10 +36,15 @@ jobs:
           distribution: 'microsoft'
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
-      - name: build
-        run: ./gradlew build
+      - name: test and build
+        run: >
+          ./gradlew test build
+          -Pminecraft_version=${{ matrix.target.minecraft_version }}
+          -Pfabric_api_version=${{ matrix.target.fabric_api_version }}
+          -Pmodmenu_version=${{ matrix.target.modmenu_version }}
+          -Parchives_base_name=ardania-info-hud-${{ matrix.target.id }}
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: Artifacts
-          path: build/libs/
+          name: ardania-info-hud-${{ matrix.target.id }}
+          path: build/libs/ardania-info-hud-${{ matrix.target.id }}-*.jar
