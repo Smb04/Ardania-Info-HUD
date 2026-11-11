@@ -26,6 +26,11 @@ public final class ArdaniaHudRenderer implements HudElement {
     private long tabPressStartTime = -1;
     private boolean tabWasDown = false;
 
+    /**
+     * Erstellt den HUD-Renderer fuer den uebergebenen Zustandsspeicher.
+     *
+     * @param state Zentraler {@link ArdaniaState} mit aktuellen Spielerdaten
+     */
     public ArdaniaHudRenderer(ArdaniaState state) {
         this.state = state;
     }
@@ -151,6 +156,12 @@ public final class ArdaniaHudRenderer implements HudElement {
         }
     }
 
+    /**
+     * Prueft, ob das HUD zum angegebenen Zeitpunkt logisch eingeblendet sein soll.
+     *
+     * @param now Aktueller Zeitstempel in Millisekunden
+     * @return {@code true}, falls das HUD aktiv angezeigt wird
+     */
     public boolean isShowing(long now) {
         ArdaniaConfig config = ArdaniaConfig.getInstance();
         if (!config.enabled) {
@@ -164,6 +175,16 @@ public final class ArdaniaHudRenderer implements HudElement {
         return this.state.isAutoHideActive(now, displayDurationMs) || tabActive;
     }
 
+    /**
+     * Ermittelt, ob das HUD durch das Druecken bzw. Nachlaufen der Tab-Taste eingeblendet bleibt.
+     *
+     * @param showOnTab         Ob die Option {@code showOnTab} aktiviert ist
+     * @param tabDown           Ob die Spielerlisten-Taste aktuell gedrueckt wird
+     * @param tabPressStartTime Zeitpunkt des letzten Tab-Tastendrucks in Millisekunden
+     * @param now               Aktueller Zeitstempel in Millisekunden
+     * @param displayDurationMs Konfigurierte Anzeigedauer in Millisekunden
+     * @return {@code true}, solange das HUD durch Tab sichtbar bleiben soll
+     */
     public static boolean isTabDisplayActive(boolean showOnTab, boolean tabDown, long tabPressStartTime, long now, long displayDurationMs) {
         if (!showOnTab) {
             return false;

@@ -9,7 +9,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 /**
- * Interaktiver In-Game HUD-Editor zum freien Verschieben des Overlays per Maus (Drag & Drop)
+ * Interaktiver In-Game HUD-Editor zum freien Verschieben des Overlays per Maus (Drag &amp; Drop)
  * und Pfeiltasten fuer Minecraft 1.21.8 - 1.21.11.
  *
  * <p>Die Eingabe wird bewusst direkt ueber GLFW abgefragt. Ab Minecraft 1.21.9
@@ -17,7 +17,7 @@ import java.util.List;
  * die alten {@code mouseClicked(double,int,int)}-Signaturen aktualisiert bzw.
  * aufgerufen. GLFW funktioniert dagegen in 1.21.8 bis 1.21.11 identisch.</p>
  *
- * <p>Unterstuetzt magnetisches Einrasten (Snap-to-Edge & Center), Pfeiltasten-Feinjustierung
+ * <p>Unterstuetzt magnetisches Einrasten (Snap-to-Edge &amp; Center), Pfeiltasten-Feinjustierung
  * sowie eine automatisch ausweichende Toolbar (Auto-Dodge).</p>
  */
 public final class ArdaniaHudEditorScreen extends Screen {

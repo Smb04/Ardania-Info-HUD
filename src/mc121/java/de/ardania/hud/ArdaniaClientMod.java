@@ -23,14 +23,17 @@ import java.util.Locale;
 /**
  * Client-Einstiegspunkt der Fabric-Mod fuer Minecraft 1.21.8 - 1.21.11.
  *
- * <p>Initialisiert Konfiguration, State, Chat-Listener, HudElement-Registrierung und
- * Tastenbelegungen (Taste J fuer Sofortabgleich, Toggle-Key).</p>
+ * <p>Initialisiert Konfiguration, State, Chat-Listener, {@code HudElement}-Registrierung und
+ * Tastenbelegungen (Taste {@code J} fuer Sofortabgleich, optionaler Toggle-Key).</p>
  */
 public final class ArdaniaClientMod implements ClientModInitializer {
 
+    /** Mod-ID fuer Ressourcen, Mixins und Konfiguration. */
     public static final String MOD_ID = "ardania_hud";
+    /** Zentraler SLF4J-Logger der Mod. */
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+    /** Optionales Debug-Logging via Systemproperty {@code -Dardania_hud.debug=true}. */
     public static final boolean DEBUG = Boolean.getBoolean(MOD_ID + ".debug");
     private static final boolean ANY_SERVER = Boolean.getBoolean(MOD_ID + ".anyServer");
 
@@ -40,6 +43,12 @@ public final class ArdaniaClientMod implements ClientModInitializer {
     private KeyMapping syncKey;
     private KeyMapping toggleKey;
     private static volatile net.minecraft.client.gui.screens.Screen pendingScreenToOpen = null;
+
+    /**
+     * Erstellt die Fabric-Client-Instanz.
+     */
+    public ArdaniaClientMod() {
+    }
 
     @Override
     public void onInitializeClient() {
@@ -183,6 +192,13 @@ public final class ArdaniaClientMod implements ClientModInitializer {
         throw new IllegalStateException("Kein passender KeyMapping-Konstruktor gefunden");
     }
 
+    /**
+     * Prueft, ob der Client aktuell mit Ardania.de (bzw. per {@code -Dardania_hud.anyServer=true}
+     * mit einem beliebigen Testserver) verbunden ist.
+     *
+     * @param client Minecraft-Client-Instanz
+     * @return {@code true}, wenn ein Ardania-Host oder Ardania-Tablist-Header erkannt wurde
+     */
     public static boolean isOnArdania(Minecraft client) {
         if (ANY_SERVER) {
             return true;
@@ -220,16 +236,33 @@ public final class ArdaniaClientMod implements ClientModInitializer {
         return value;
     }
 
+    /**
+     * Oeffnet einen Bildschirm unmittelbar auf dem Client.
+     *
+     * @param client Minecraft-Client-Instanz
+     * @param screen Zu oeffnender Bildschirm (oder {@code null} zum Schliessen)
+     */
     public static void openScreen(Minecraft client, net.minecraft.client.gui.screens.Screen screen) {
         if (client != null) {
             client.setScreen(screen);
         }
     }
 
+    /**
+     * Merkt einen Bildschirm zum Oeffnen vor, sobald der Chat-Screen geschlossen wurde.
+     *
+     * @param screen Zu oeffnender Bildschirm
+     */
     public static void requestOpenScreen(net.minecraft.client.gui.screens.Screen screen) {
         pendingScreenToOpen = screen;
     }
 
+    /**
+     * Erzeugt eine Mod-spezifische {@link ResourceLocation} unter dem Namespace {@link #MOD_ID}.
+     *
+     * @param path Ressourcenpfad innerhalb des Mods
+     * @return Zusammengesetzte ResourceLocation
+     */
     public static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
     }

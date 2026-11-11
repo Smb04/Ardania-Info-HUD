@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  *   <li>Inkrementelle Einnahmen (z. B. Job-Actionbar {@code +0,02 Euronen})</li>
  *   <li>Bank-Transaktionen (Gutschriften, Abzuege, Ueberweisungen)</li>
  *   <li>ArdaPoints (Punktestand und Voteziel-Benachrichtigungen)</li>
- *   <li>Berufe & Job-Level (z. B. {@code Miner [Lv. 24]} oder {@code [MAX]})</li>
+ *   <li>Berufe &amp; Job-Level (z. B. {@code Miner [Lv. 24]} oder {@code [MAX]})</li>
  *   <li>Spielzeit-Meldungen (Tage, Stunden, Minuten pro Unterserver aus {@code /ontime})</li>
  *   <li>Server-Tags aus Tablist-Namen (z. B. {@code [H]}, {@code [F]}, {@code [M]})</li>
  *   <li>Fehlermeldungen unbekannter Befehle zur automatischen Unterdrueckung</li>
@@ -99,10 +99,22 @@ public final class ArdaniaMessageParser {
 
     private final ArdaniaState state;
 
+    /**
+     * Erstellt einen neuen Nachrichten-Parser fuer den angegebenen Zustandsspeicher.
+     *
+     * @param state Zentraler Zustandsspeicher {@link ArdaniaState}
+     */
     public ArdaniaMessageParser(ArdaniaState state) {
         this.state = state;
     }
 
+    /**
+     * Parst eine eingehende Nachricht ohne Namenspruefung fuer {@code /ontime}.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @param overlay    {@code true}, wenn die Nachricht aus der Actionbar stammt
+     * @return {@code true}, wenn mindestens ein Wert uebernommen wurde
+     */
     public boolean parse(String rawMessage, boolean overlay) {
         return parse(rawMessage, overlay, null);
     }
@@ -111,11 +123,11 @@ public final class ArdaniaMessageParser {
      * Parst eine eingehende Nachricht.
      *
      * @param rawMessage         Roher Nachrichteninhalt
-     * @param overlay            true, wenn die Nachricht aus der Actionbar stammt
+     * @param overlay            {@code true}, wenn die Nachricht aus der Actionbar stammt
      * @param expectedPlayerName Name des lokalen Spielers. Wird ein
      *                           {@code /ontime}-Bericht fuer einen anderen Spieler
      *                           erkannt, wird er komplett ignoriert.
-     * @return true, wenn mindestens ein Wert uebernommen wurde
+     * @return {@code true}, wenn mindestens ein Wert uebernommen wurde
      */
     public boolean parse(String rawMessage, boolean overlay, String expectedPlayerName) {
         if (rawMessage == null || rawMessage.isBlank()) {
@@ -130,6 +142,13 @@ public final class ArdaniaMessageParser {
         return changed;
     }
 
+    /**
+     * Extrahiert einen Server-Kurztag wie {@code H}, {@code F}, {@code M}, {@code E} oder {@code C}
+     * aus einem Tablisten-Eintrag (z. B. {@code [H] Spieler}).
+     *
+     * @param rawTabEntry Roher Text des Tablisten-Eintrags
+     * @return Gefundener Einzelbuchstabe oder {@code null}
+     */
     public static String extractTabServerTag(String rawTabEntry) {
         if (rawTabEntry == null || rawTabEntry.isBlank()) {
             return null;
@@ -142,6 +161,12 @@ public final class ArdaniaMessageParser {
         return null;
     }
 
+    /**
+     * Prueft, ob eine Nachricht generell einer der vom Mod abgefragten Server-Antworten entspricht.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true}, falls es sich um eine Geld-, Punkte-, Job- oder Ontime-Antwort handelt
+     */
     public boolean isSilentServerResponse(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         String m = normalize(rawMessage);
@@ -153,32 +178,68 @@ public final class ArdaniaMessageParser {
                 || ONTIME_LINE_SUPPRESS.matcher(m).find();
     }
 
+    /**
+     * Prueft, ob die Nachricht einen absoluten Kontostand enthaelt.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei erkannter Kontostand-Antwort
+     */
     public boolean isMoneyBalanceResponse(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         return ABSOLUTE_BALANCE.matcher(normalize(rawMessage)).find();
     }
 
+    /**
+     * Prueft, ob die Nachricht eine ArdaPoints-Kontostandsantwort darstellt.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei erkannter Punktestand-Antwort
+     */
     public boolean isPointsBalanceResponse(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         return ARDAPOINTS_BESITZ.matcher(normalize(rawMessage)).find();
     }
 
+    /**
+     * Prueft, ob die Nachricht Bestandteil einer {@code /jobs stats}-Ausgabe ist.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei Kopf- oder Statistikzeile von ArdaniaJobs
+     */
     public boolean isJobsStatsResponse(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         String m = normalize(rawMessage);
         return JOBS_HEADER.matcher(m).find() || JOBS_STATS_LINE.matcher(m).find();
     }
 
+    /**
+     * Prueft, ob die Nachricht eine unterdrueckbare Zeile eines {@code /ontime}-Berichts ist.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei erkannter Spielzeit-Berichtszeile
+     */
     public boolean isOntimeResponse(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         return ONTIME_LINE_SUPPRESS.matcher(normalize(rawMessage)).find();
     }
 
+    /**
+     * Prueft, ob die Nachricht auf einen unbekannten oder in dieser Welt gesperrten Befehl hinweist.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei erkannter Befehls-Fehlermeldung
+     */
     public boolean isUnknownCommandError(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         return UNKNOWN_COMMAND_ERROR.matcher(normalize(rawMessage)).find();
     }
 
+    /**
+     * Ermittelt aus einer Brigadier-Fehlermeldung den fehlgeschlagenen Mod-Abfragebefehl.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return Zu blockierender Mod-Befehl oder {@code null}
+     */
     public String extractFailedCommandFromContext(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return null;
         String m = normalize(rawMessage).toLowerCase(java.util.Locale.ROOT);
@@ -195,7 +256,7 @@ public final class ArdaniaMessageParser {
      * Befehl hinweist (z. B. {@code ban<--[HERE]} oder {@code tp<--[HIER]}).
      *
      * @param rawMessage Roher Nachrichteninhalt
-     * @return true, falls ein Brigadier-Fehlerkontext fuer einen fremden Befehl vorliegt
+     * @return {@code true}, falls ein Brigadier-Fehlerkontext fuer einen fremden Befehl vorliegt
      */
     public boolean hasForeignCommandErrorContext(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
@@ -203,11 +264,23 @@ public final class ArdaniaMessageParser {
         return m.contains("<--") && extractFailedCommandFromContext(rawMessage) == null;
     }
 
+    /**
+     * Erkennt eine laufende Einkommensmeldung in der Actionbar (z. B. {@code +0,02 Euronen}).
+     *
+     * @param rawMessage Roher Actionbar-Text
+     * @return {@code true}, wenn ein Geldeingang erkannt wurde
+     */
     public boolean isActionBarIncome(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         return ACTIONBAR_INCOME_TRIGGER.matcher(normalize(rawMessage)).find();
     }
 
+    /**
+     * Erkennt allgemeine Job-Benachrichtigungen (z. B. Level-Up), die keine {@code /jobs stats}-Abfrage sind.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei einer Job-Ereignismeldung
+     */
     public boolean isJobNotification(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         String m = normalize(rawMessage);
@@ -216,6 +289,12 @@ public final class ArdaniaMessageParser {
                 && !JOBS_STATS_LINE.matcher(m).find();
     }
 
+    /**
+     * Erkennt Benachrichtigungen ueber erreichte Vote-Ziele oder Vote-Belohnungen.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei erkannter Vote-Meldung
+     */
     public boolean isVoteNotification(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
         return VOTE_GOAL_NOTIFICATION.matcher(normalize(rawMessage)).find();

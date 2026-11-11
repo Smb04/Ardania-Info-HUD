@@ -38,11 +38,17 @@ public final class ArdaniaSyncManager {
      * Typ des Unterservers innerhalb des Ardania-BungeeCord-Netzwerks.
      */
     public enum ServerType {
+        /** Ardania-Hauptserver (Survival/Citybuild). */
         HAUPTSERVER,
+        /** BungeeCord-Fallback-/Lobby-Server nach Neustarts. */
         FALLBACK,
+        /** Minenwelten-Unterserver. */
         MINE,
+        /** Event-Unterserver. */
         EVENT,
+        /** Creative-/Bau-Unterserver. */
         CREATIVE,
+        /** Noch nicht eindeutig bestimmter Unterserver. */
         UNKNOWN;
 
         /**
@@ -294,16 +300,25 @@ public final class ArdaniaSyncManager {
         return (now() - this.lastActivityTime) >= AFK_TIMEOUT_MS;
     }
 
+    /**
+     * Merkt einen verzoegerten Abgleich des Euronen-Kontostands ({@code /geld}) vor.
+     */
     public synchronized void triggerMoneySync() {
         this.pendingMoneyQuery = true;
         this.lastActivityTime = now();
     }
 
+    /**
+     * Merkt einen verzoegerten Abgleich der ArdaPoints ({@code /ardapoints me}) vor.
+     */
     public synchronized void triggerPointsSync() {
         this.pendingPointsQuery = true;
         this.lastActivityTime = now();
     }
 
+    /**
+     * Merkt einen verzoegerten Abgleich der Job-Statistiken ({@code /jobs stats}) vor.
+     */
     public synchronized void triggerJobsSync() {
         this.pendingJobsQuery = true;
         this.lastActivityTime = now();
@@ -849,6 +864,14 @@ public final class ArdaniaSyncManager {
         }
     }
 
+    /**
+     * Sendet den naechsten wartenden Befehl aus der Queue, sofern der Mindestabstand von
+     * 1.500 ms eingehalten ist und der Befehl auf der aktuellen Welt unterstuetzt wird.
+     *
+     * @param dispatcher   Senke zum Absenden des Befehlsstrings
+     * @param supportCheck Prueffunktion, ob der Befehl im aktuellen Befehlsbaum verfuegbar ist
+     * @return {@code true}, falls ein Befehl versendet wurde
+     */
     public synchronized boolean dispatchNextCommand(java.util.function.Consumer<String> dispatcher, java.util.function.Predicate<String> supportCheck) {
         long now = now();
         if (this.commandQueue.isEmpty()) {
@@ -1004,6 +1027,12 @@ public final class ArdaniaSyncManager {
         return false;
     }
 
+    /**
+     * Prueft, ob sich der Sync-Manager noch im kurzen Unterdrueckungsfenster nach einem
+     * automatischen Befehl befindet.
+     *
+     * @return {@code true}, solange automatische Antworten oder Fehler unterdrueckt werden koennen
+     */
     public synchronized boolean isSuppressingResponses() {
         long now = now();
         return this.lastCommandSentTime > 0
@@ -1013,10 +1042,18 @@ public final class ArdaniaSyncManager {
 
     // --- Package-private & Public Helfer fuer Unit Tests ---
 
+    /**
+     * Setzt einen benutzerdefinierten Zeitgeber fuer deterministische Unit-Tests.
+     *
+     * @param supplier Zeitquelle in Millisekunden (bei {@code null} wird {@link System#currentTimeMillis()} verwendet)
+     */
     public synchronized void setTimeSupplierForTesting(java.util.function.LongSupplier supplier) {
         this.timeSupplier = (supplier != null) ? supplier : System::currentTimeMillis;
     }
 
+    /**
+     * Setzt den gesamten Zustand des Sync-Managers fuer Unit-Tests zurueck.
+     */
     public synchronized void resetForTesting() {
         this.lastMoneySyncTime = 0;
         this.lastPointsSyncTime = 0;
@@ -1060,14 +1097,33 @@ public final class ArdaniaSyncManager {
         this.timeSupplier = System::currentTimeMillis;
     }
 
+    /**
+     * Setzt den aktuellen Servertyp direkt fuer Testzwecke.
+     *
+     * @param type Zu simulierender {@link ServerType}
+     */
     public synchronized void setCurrentServerTypeForTesting(ServerType type) {
         this.currentServerType = type;
     }
 
+    /**
+     * Registriert einen gesendeten Auto-Befehl fuer Testzwecke.
+     *
+     * @param cmd  Befehl ohne fuehrendes {@code /}
+     * @param time Zeitstempel in Millisekunden
+     */
     public synchronized void setLastCommandSentForTesting(String cmd, long time) {
         recordAutoCommandSent(cmd, time);
     }
 
+    /**
+     * Konfiguriert den AFK-Status inklusive Startposition direkt fuer Testzwecke.
+     *
+     * @param active Ob AFK aktiv ist
+     * @param x      AFK-Start-X
+     * @param y      AFK-Start-Y
+     * @param z      AFK-Start-Z
+     */
     public synchronized void setAfkActiveForTesting(boolean active, double x, double y, double z) {
         this.afkActive = active;
         this.afkStartX = x;
@@ -1075,18 +1131,38 @@ public final class ArdaniaSyncManager {
         this.afkStartZ = z;
     }
 
+    /**
+     * Liefert eine Kopie der auf der aktuellen Welt gesperrten Befehle (Test- und Debug-Helfer).
+     *
+     * @return Kopie der gesperrten Befehle
+     */
     public synchronized Set<String> getBlockedCommandsForTesting() {
         return new HashSet<>(this.blockedCommandsOnCurrentWorld);
     }
 
+    /**
+     * Liefert eine Kopie der aktuell wartenden Befehlswarteschlange (Test- und Debug-Helfer).
+     *
+     * @return Kopie der Befehls-Queue
+     */
     public synchronized Deque<String> getCommandQueueForTesting() {
         return new ArrayDeque<>(this.commandQueue);
     }
 
+    /**
+     * Fuegt einen Befehl direkt der Warteschlange hinzu (Testhelfer).
+     *
+     * @param cmd Befehl ohne fuehrendes {@code /}
+     */
     public synchronized void queueCommandForTesting(String cmd) {
         queueCommand(cmd);
     }
 
+    /**
+     * Gibt an, ob aktuell ein automatischer Sync-Befehl abgesetzt wird (Testhelfer).
+     *
+     * @return {@code true} waehrend des Versands
+     */
     public synchronized boolean isSendingAutoCommandForTesting() {
         return this.sendingAutoCommand;
     }

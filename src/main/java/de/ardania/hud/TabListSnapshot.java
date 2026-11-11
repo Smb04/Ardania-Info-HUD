@@ -23,6 +23,9 @@ public final class TabListSnapshot {
      * Aktualisiert den Snapshot. Der Zeitstempel aendert sich nur, wenn sich der
      * sichtbare Text tatsaechlich unterscheidet, damit die Erkennung nicht bei
      * jedem identischen Header-Paket neu rechnet.
+     *
+     * @param headerComponent Header-Komponente aus dem Tablist-Paket (kann {@code null} sein)
+     * @param footerComponent Footer-Komponente aus dem Tablist-Paket (kann {@code null} sein)
      */
     public static void update(Component headerComponent, Component footerComponent) {
         String newHeader = headerComponent != null ? headerComponent.getString() : "";
@@ -34,18 +37,36 @@ public final class TabListSnapshot {
         }
     }
 
+    /**
+     * Gibt den zuletzt empfangenen Tablisten-Header als Klartext zurueck.
+     *
+     * @return Header-Text oder leerer String
+     */
     public static String getHeader() {
         return header;
     }
 
+    /**
+     * Gibt den zuletzt empfangenen Tablisten-Footer als Klartext zurueck.
+     *
+     * @return Footer-Text oder leerer String
+     */
     public static String getFooter() {
         return footer;
     }
 
+    /**
+     * Gibt den Zeitstempel der letzten Textaenderung im Snapshot zurueck.
+     *
+     * @return Zeitstempel in Millisekunden seit Epoch
+     */
     public static long getUpdatedAt() {
         return updatedAt;
     }
 
+    /**
+     * Setzt Header, Footer und Zeitstempel auf den Ausgangszustand zurueck.
+     */
     public static void reset() {
         header = "";
         footer = "";

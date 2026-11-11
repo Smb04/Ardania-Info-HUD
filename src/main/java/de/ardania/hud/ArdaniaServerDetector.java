@@ -41,19 +41,45 @@ public final class ArdaniaServerDetector {
      * Quelle, aus der der erkannte Servertyp stammt. Wird im Debug-Befehl angezeigt.
      */
     public enum Source {
+        /** Manuelle Festlegung ueber die Einstellung {@code Server-Erkennung}. */
         OVERRIDE,
+        /** Eindeutiger Hinweis oder alleinige Server-Nennung im Tablist-Header/-Footer. */
         HEADER,
+        /** Berechnung ueber das groesste positive Delta aus Header-Zahlen und Tablist-Tags. */
         HEADER_COUNTS,
+        /** Server-Tag am eigenen Tablisten-Eintrag. */
         SELF_TAG,
+        /** Server-Tags anderer Spieler in derselben geladenen Welt. */
         SAME_WORLD,
+        /** Auswertung verfuegbarer Serverbefehle im Brigadier-Befehlsbaum. */
         COMMANDS,
+        /** Erkannter Creative-Spielmodus. */
         CREATIVE,
+        /** Beibehaltener vorheriger Servertyp bei unvollstaendigem Zwischenzustand. */
         RETAINED,
+        /** Kein verlaessliches Erkennungssignal vorhanden. */
         NONE
     }
 
     /**
      * Ergebnis einer Erkennungsrunde inklusive aller Rohdaten fuer den Debug-Befehl.
+     *
+     * @param type              Erkannter Unterserver-Typ
+     * @param confidence        Konfidenzwert der Erkennung (0 bis 100 Prozent)
+     * @param source            Primaere Quelle der Erkennung
+     * @param headerText        Gelesener Tablist-Header
+     * @param footerText        Gelesener Tablist-Footer
+     * @param headerCounts      Aus Header/Footer geparste Spielerzahlen je Servertyp
+     * @param tagCounts         Gezaehlte Server-Tags anderer Spieler in der Tabliste
+     * @param sameWorldTags     Server-Tags von Spielern in derselben Welt
+     * @param untaggedOthers    Anzahl ungetaggter anderer Spieler in der Tabliste
+     * @param sameWorldUntagged Anzahl ungetaggter anderer Spieler in derselben Welt
+     * @param tabListSize       Gesamtgroesse der Tabliste
+     * @param commandTreeReady  Ob der Brigadier-Befehlsbaum vollstaendig geladen ist
+     * @param moneyAvailable    Ob {@code /geld} im Befehlsbaum verfuegbar ist
+     * @param jobsAvailable     Ob {@code /jobs} im Befehlsbaum verfuegbar ist
+     * @param creative          Ob sich der lokale Spieler im Creative-Modus befindet
+     * @param timestamp         Zeitstempel dieser Erkennungsrunde in Millisekunden
      */
     public record Detection(
             ArdaniaSyncManager.ServerType type,
@@ -73,6 +99,9 @@ public final class ArdaniaServerDetector {
             boolean creative,
             long timestamp
     ) {
+        /**
+         * Normalisiert nullwertige Text-, Map- und Zaehlerfelder beim Erzeugen.
+         */
         public Detection {
             headerText = headerText != null ? headerText : "";
             footerText = footerText != null ? footerText : "";
@@ -86,6 +115,8 @@ public final class ArdaniaServerDetector {
         /**
          * Mindest-Delta, das der eigene Servertyp haben muss: der eigene Spieler
          * plus alle ungetaggten Spieler der eigenen Welt.
+         *
+         * @return Erwartetes Mindest-Delta
          */
         public int expectedMinDelta() {
             return 1 + this.sameWorldUntagged;
@@ -93,6 +124,9 @@ public final class ArdaniaServerDetector {
 
         /**
          * Delta eines Servertyps: Header-Zahl minus Tag-Zahl.
+         *
+         * @param type Zu pruefender Servertyp
+         * @return Berechnetes Delta
          */
         public int delta(ArdaniaSyncManager.ServerType type) {
             if (type == null) {
@@ -113,6 +147,12 @@ public final class ArdaniaServerDetector {
             return Collections.unmodifiableMap(copy);
         }
 
+        /**
+         * Erzeugt ein leeres Erkennungsergebnis fuer den Zustand {@link ArdaniaSyncManager.ServerType#UNKNOWN}.
+         *
+         * @param now Zeitstempel in Millisekunden
+         * @return Leere {@link Detection}-Instanz
+         */
         public static Detection unknown(long now) {
             return new Detection(
                     ArdaniaSyncManager.ServerType.UNKNOWN,
@@ -137,6 +177,21 @@ public final class ArdaniaServerDetector {
 
     /**
      * Eingabedaten fuer eine Erkennungsrunde.
+     *
+     * @param headerText        Aktueller Tablist-Header
+     * @param footerText        Aktueller Tablist-Footer
+     * @param tagCounts         Anzahl der Server-Tags anderer Spieler je Servertyp
+     * @param sameWorldTags     Server-Tags von Spielern in derselben Welt
+     * @param untaggedOthers    Anzahl ungetaggter anderer Tablist-Spieler
+     * @param sameWorldUntagged Anzahl ungetaggter Spieler in derselben Welt
+     * @param selfTag           Server-Tag am eigenen Tablist-Eintrag (falls vorhanden)
+     * @param tabListSize       Gesamtgroesse der Tabliste
+     * @param commandTreeReady  Ob der Brigadier-Befehlsbaum bereit ist
+     * @param moneyAvailable    Ob {@code /geld} verfuegbar ist
+     * @param jobsAvailable     Ob {@code /jobs} verfuegbar ist
+     * @param creative          Ob der Spieler im Creative-Modus ist
+     * @param override          Manuell gesetzter Server-Override
+     * @param previous          Vorherige Erkennung fuer Hysterese und Beibehaltung
      */
     public record Input(
             String headerText,
@@ -154,6 +209,9 @@ public final class ArdaniaServerDetector {
             ArdaniaSyncManager.ServerType override,
             Detection previous
     ) {
+        /**
+         * Normalisiert nullwertige Eingabefelder und stellt nicht-negative Zaehler sicher.
+         */
         public Input {
             headerText = headerText != null ? headerText : "";
             footerText = footerText != null ? footerText : "";
@@ -346,12 +404,20 @@ public final class ArdaniaServerDetector {
      * ausgewertet, wenn der Header keine Zahlen enthaelt, damit sich beide
      * Quellen nicht widersprechen.
      *
-     * @return Map ServerType -> Spielerzahl (nie {@code null})
+     * @param input Eingabedaten mit Header- und Footer-Text
+     * @return Map {@code ServerType -> Spielerzahl} (nie {@code null})
      */
     public static Map<ArdaniaSyncManager.ServerType, Integer> parseHeaderCounts(Input input) {
         return parseHeaderCounts(input != null ? input.headerText() : "", input != null ? input.footerText() : "");
     }
 
+    /**
+     * Parst Servertyp-Zahlen direkt aus Header- und Footer-Text.
+     *
+     * @param headerText Roher Tablist-Header
+     * @param footerText Roher Tablist-Footer (Fallback, falls im Header keine Zahlen stehen)
+     * @return Map {@code ServerType -> Spielerzahl} (nie {@code null})
+     */
     public static Map<ArdaniaSyncManager.ServerType, Integer> parseHeaderCounts(String headerText, String footerText) {
         EnumMap<ArdaniaSyncManager.ServerType, Integer> counts = new EnumMap<>(ArdaniaSyncManager.ServerType.class);
         collectCounts(headerText, counts);

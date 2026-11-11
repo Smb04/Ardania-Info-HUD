@@ -15,6 +15,12 @@ import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Clientseitige Mehrsprachigkeits-Verwaltung fuer das Ardania Info HUD.
+ *
+ * <p>Laedt die gebuendelten JSON-Sprachdateien ({@code de_de}, {@code en_us}, {@code es_es}, {@code fr_fr})
+ * und ermoeglicht das Live-Umschalten der HUD- und UI-Sprache unabhaengig von der Minecraft-Client-Sprache.</p>
+ */
 public final class ArdaniaI18n {
 
     private static final Gson GSON = new Gson();
@@ -48,6 +54,14 @@ public final class ArdaniaI18n {
         TRANSLATIONS.put(lang, Collections.emptyMap());
     }
 
+    /**
+     * Ermittelt die effektiv zu verwendende Sprache anhand der Benutzerkonfiguration
+     * und des Minecraft-Client-Sprachcodes.
+     *
+     * @param configured     Konfigurierte Spracheinstellung (oder {@link ArdaniaConfig.HudLanguage#AUTO})
+     * @param clientLangCode Sprachcode des Minecraft-Clients (z. B. {@code de_de})
+     * @return Aufgeloeste Zielsprache (Standard: {@link ArdaniaConfig.HudLanguage#EN_US})
+     */
     public static ArdaniaConfig.HudLanguage resolveLanguage(ArdaniaConfig.HudLanguage configured, String clientLangCode) {
         if (configured != null && configured != ArdaniaConfig.HudLanguage.AUTO) {
             return configured;
@@ -70,6 +84,13 @@ public final class ArdaniaI18n {
         return ArdaniaConfig.HudLanguage.EN_US;
     }
 
+    /**
+     * Gibt einen lokalisierten Roh-Text fuer eine konkrete Sprache und einen Uebersetzungsschluessel zurueck.
+     *
+     * @param lang Zielsprache
+     * @param key  Uebersetzungsschluessel
+     * @return Lokalisierter Text, englischer Fallback oder der Schluessel selbst
+     */
     public static String getString(ArdaniaConfig.HudLanguage lang, String key) {
         ArdaniaConfig.HudLanguage effective = (lang == null || lang == ArdaniaConfig.HudLanguage.AUTO)
                 ? ArdaniaConfig.HudLanguage.EN_US
@@ -83,6 +104,12 @@ public final class ArdaniaI18n {
         return fallback.getOrDefault(key, key);
     }
 
+    /**
+     * Uebersetzt einen Schluessel entsprechend der aktuell aktiven Mod-Sprache in eine {@link MutableComponent}.
+     *
+     * @param key Uebersetzungsschluessel aus den Sprachdateien
+     * @return Lokalisierte Textkomponente
+     */
     public static MutableComponent translate(String key) {
         ArdaniaConfig.HudLanguage configured = ArdaniaConfig.getInstance().language;
         String clientLangCode = null;
@@ -102,6 +129,12 @@ public final class ArdaniaI18n {
         return Component.literal(getString(resolved, key));
     }
 
+    /**
+     * Gibt die unveraenderliche Schluessel-Wert-Zuordnung fuer eine geladene Sprache zurueck.
+     *
+     * @param lang Zielsprache
+     * @return Unveraenderliche Uebersetzungstabelle
+     */
     public static Map<String, String> getLanguageMap(ArdaniaConfig.HudLanguage lang) {
         return TRANSLATIONS.getOrDefault(lang, Collections.emptyMap());
     }

@@ -23,6 +23,10 @@ import java.util.function.ToIntFunction;
  */
 public final class HudLayout {
 
+    /** Verhindert Instanziierung der reinen Layout-Hilfsklasse. */
+    private HudLayout() {
+    }
+
     /** Abstand in Pixeln zum aeusseren Bildschirmrand. */
     public static final int EDGE_MARGIN = 3;
     /** Horizontaler Innenabstand der HUD-Box. */
@@ -56,10 +60,22 @@ public final class HudLayout {
      * @param bar      Optionaler Fortschrittsbalken unter dieser Zeile
      */
     public record LineSpec(Component left, Component right, boolean centered, ProgressBarSpec bar) {
+        /**
+         * Erstellt eine linksbuendige Einzelzeile ohne Fortschrittsbalken.
+         *
+         * @param single Textinhalt der Zeile
+         */
         public LineSpec(Component single) {
             this(single, null, false, null);
         }
 
+        /**
+         * Erstellt eine Textzeile ohne Fortschrittsbalken.
+         *
+         * @param left     Linker oder zentrierter Textinhalt
+         * @param right    Optionaler rechtsbuendiger Textinhalt
+         * @param centered Ob {@code left} zentriert gezeichnet wird
+         */
         public LineSpec(Component left, Component right, boolean centered) {
             this(left, right, centered, null);
         }
@@ -67,6 +83,14 @@ public final class HudLayout {
 
     /**
      * Berechnete Koordinaten fuer einen Fortschrittsbalken zur direkten Ausgabe.
+     *
+     * @param x          Linke X-Koordinate des Balkens in skalierten Pixeln
+     * @param y          Obere Y-Koordinate des Balkens in skalierten Pixeln
+     * @param width      Gesamtbreite des Balkens in Pixeln
+     * @param height     Hoehe des Balkens in Pixeln
+     * @param fillRatio  Fuellstand zwischen {@code 0.0f} und {@code 1.0f}
+     * @param fillColor  ARGB-Farbe des gefuellten Bereichs
+     * @param trackColor ARGB-Hintergrundfarbe der Leiste
      */
     public record RenderableBar(
             int x,
@@ -80,6 +104,13 @@ public final class HudLayout {
 
     /**
      * Berechnete Koordinaten fuer eine Textzeile zur direkten Ausgabe.
+     *
+     * @param left     Linker bzw. zentrierter Text
+     * @param leftX    X-Koordinate von {@code left}
+     * @param right    Optionaler rechtsbuendiger Text
+     * @param rightX   X-Koordinate von {@code right}
+     * @param y        Y-Koordinate der Zeile
+     * @param centered Ob die Zeile zentriert ausgerichtet ist
      */
     public record RenderableLine(
             Component left,
@@ -92,6 +123,14 @@ public final class HudLayout {
 
     /**
      * Gesamtergebnis einer Layout-Berechnung inklusive Bounding-Box und Elementen.
+     *
+     * @param boxX         Linke X-Koordinate der HUD-Box
+     * @param boxY         Obere Y-Koordinate der HUD-Box
+     * @param boxWidth     Gesamtbreite der HUD-Box in Pixeln
+     * @param boxHeight    Gesamthoehe der HUD-Box in Pixeln
+     * @param headerHeight Hoehe der abgedunkelten Kopfzeile in Pixeln
+     * @param lines        Positionierte Textzeilen
+     * @param bars         Positionierte Fortschrittsbalken
      */
     public record LayoutResult(
             int boxX,

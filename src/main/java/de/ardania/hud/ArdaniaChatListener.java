@@ -29,10 +29,18 @@ public final class ArdaniaChatListener {
 
     private final ArdaniaMessageParser parser;
 
+    /**
+     * Erstellt einen neuen Listener mit dem angegebenen Nachrichten-Parser.
+     *
+     * @param parser Parser zum Extrahieren von Ardania-Statistiken aus Chat- und Actionbar-Texten
+     */
     public ArdaniaChatListener(ArdaniaMessageParser parser) {
         this.parser = parser;
     }
 
+    /**
+     * Registriert alle Fabric-Chat-, Befehls- und Client-Command-Listener (inkl. {@code /ardaniahud}).
+     */
     public void register() {
         ClientReceiveMessageEvents.ALLOW_GAME.register(this::onAllowGameMessage);
         ClientReceiveMessageEvents.ALLOW_CHAT.register((message, signedMessage, sender, params, receptionTimestamp) ->

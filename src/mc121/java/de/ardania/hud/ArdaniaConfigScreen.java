@@ -6,13 +6,13 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Dreistufiger Konfigurations-Bildschirm fuer Minecraft 1.21.8+ (ModMenu & /ardaniahud config).
+ * Dreistufiger Konfigurations-Bildschirm fuer Minecraft 1.21.8 - 1.21.11 (ModMenu &amp; {@code /ardaniahud config}).
  *
- * <p>Bietet Tabs fuer:</p>
+ * <p>Bietet drei Reiter (Tabs):</p>
  * <ul>
- *   <li>Allgemein (HUD ein/aus, Transparenz, Skalierung, 6 Snap-Positionen, Job-Fortschrittsstil)</li>
- *   <li>Spielzeit & Welten (Server-Filter, kombinierte/einzelne Anzeige, Sichtbarkeitsprofile)</li>
- *   <li>Sync & Zeilen (Auto-Sync-Optionen, Abfrage-Intervalle, Zeilenreihenfolge nach oben/unten)</li>
+ *   <li>Anzeige &amp; Layout (HUD ein/aus, 6 Ankerpositionen, Skalierung, Hintergrund, Sprache, Kompakte Zahlen, Anzeigefelder, HUD-Editor)</li>
+ *   <li>Spielzeit &amp; Welten (Spielzeit ein/aus, Zusammenrechnen, Session-Timer, Sichtbarkeitsprofile, Weltenauswahl)</li>
+ *   <li>Sync &amp; Slide (Auto-Sync, Abfrage-Intervalle, Sync beim Beitreten, Server-Erkennung, Auto-Ausblenden, Anzeigedauer, Bei Tab anzeigen)</li>
  * </ul>
  */
 public final class ArdaniaConfigScreen extends Screen {
@@ -27,6 +27,11 @@ public final class ArdaniaConfigScreen extends Screen {
     private final ArdaniaConfig config;
     private ConfigTab currentTab = ConfigTab.GENERAL;
 
+    /**
+     * Erstellt den Konfigurations-Bildschirm.
+     *
+     * @param parent Uebergeordneter Bildschirm, zu dem beim Schliessen zurueckgekehrt wird (kann {@code null} sein)
+     */
     public ArdaniaConfigScreen(Screen parent) {
         super(ArdaniaI18n.translate("config.ardania_hud.title"));
         this.parent = parent;

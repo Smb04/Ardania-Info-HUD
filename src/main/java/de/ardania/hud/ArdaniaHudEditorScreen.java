@@ -10,8 +10,8 @@ import net.minecraft.network.chat.Component;
 import java.util.List;
 
 /**
- * Interaktiver In-Game HUD-Editor zum freien Verschieben des Overlays per Maus (Drag & Drop)
- * und Pfeiltasten fuer moderne Minecraft-Versionen (MC 26.2 & 26.3).
+ * Interaktiver In-Game HUD-Editor zum freien Verschieben des Overlays per Maus (Drag &amp; Drop)
+ * und Pfeiltasten fuer moderne Minecraft-Versionen (MC 26.2 &amp; 26.3).
  *
  * <p>Verwendet eine Dual-Layer Input Engine (Frame-synchrones Polling via
  * {@code mouseHandler.isLeftPressed()} kombiniert mit nativen {@code Screen}-Events),
