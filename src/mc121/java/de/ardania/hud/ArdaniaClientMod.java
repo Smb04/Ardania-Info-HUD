@@ -5,7 +5,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
@@ -21,9 +21,9 @@ import java.lang.reflect.Modifier;
 import java.util.Locale;
 
 /**
- * Client-Einstiegspunkt der Fabric-Mod fuer Minecraft 1.21.x.
+ * Client-Einstiegspunkt der Fabric-Mod fuer Minecraft 1.21.8 - 1.21.11.
  *
- * <p>Initialisiert Konfiguration, State, Chat-Listener, Renderer und
+ * <p>Initialisiert Konfiguration, State, Chat-Listener, HudElement-Registrierung und
  * Tastenbelegungen (Taste J fuer Sofortabgleich, Toggle-Key).</p>
  */
 public final class ArdaniaClientMod implements ClientModInitializer {
@@ -51,7 +51,7 @@ public final class ArdaniaClientMod implements ClientModInitializer {
         new ArdaniaChatListener(new ArdaniaMessageParser(state)).register();
 
         ArdaniaHudRenderer hudRenderer = new ArdaniaHudRenderer(state);
-        HudRenderCallback.EVENT.register(hudRenderer);
+        HudElementRegistry.addLast(id("info_hud"), hudRenderer);
 
         registerKeybinds(state, hudRenderer);
 

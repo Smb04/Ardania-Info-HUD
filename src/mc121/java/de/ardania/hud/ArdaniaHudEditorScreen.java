@@ -10,12 +10,12 @@ import java.util.List;
 
 /**
  * Interaktiver In-Game HUD-Editor zum freien Verschieben des Overlays per Maus (Drag & Drop)
- * und Pfeiltasten fuer Minecraft 1.21.x.
+ * und Pfeiltasten fuer Minecraft 1.21.8 - 1.21.11.
  *
  * <p>Die Eingabe wird bewusst direkt ueber GLFW abgefragt. Ab Minecraft 1.21.9
  * werden bei geoeffnetem Screen weder {@code MouseHandler.isLeftPressed()} noch
  * die alten {@code mouseClicked(double,int,int)}-Signaturen aktualisiert bzw.
- * aufgerufen. GLFW funktioniert dagegen in allen 1.21-Versionen identisch.</p>
+ * aufgerufen. GLFW funktioniert dagegen in 1.21.8 bis 1.21.11 identisch.</p>
  *
  * <p>Unterstuetzt magnetisches Einrasten (Snap-to-Edge & Center), Pfeiltasten-Feinjustierung
  * sowie eine automatisch ausweichende Toolbar (Auto-Dodge).</p>
@@ -136,11 +136,11 @@ public final class ArdaniaHudEditorScreen extends Screen {
         updateDragState(mouseX, mouseY);
         updateArrowNudges();
 
-        // WICHTIG: In 1.21.x zeichnet Screen.render() den (geblurrten) Menue-
-        // Hintergrund und die Buttons. Wird es zuletzt aufgerufen, liegt der
-        // Blur ueber der HUD-Vorschau. Deshalb zuerst den Screen rendern und
-        // die Vorschau anschliessend darueberlegen.
+        // Ab 1.21.6+ zeichnet Screen.renderWithTooltip() den Hintergrund- und Blur-Stratum
+        // bereits vor Screen.render(). Mit nextStratum() nach super.render() bleibt die
+        // HUD-Vorschau sauber in einem eigenen Layer oberhalb von Hintergrund und Buttons.
         super.render(graphics, mouseX, mouseY, delta);
+        graphics.nextStratum();
 
         // Magnetische Cyan-Hilfslinien
         if (this.snapGuideX >= 0) {
@@ -156,12 +156,9 @@ public final class ArdaniaHudEditorScreen extends Screen {
         int headerAlpha = Math.min(255, alpha + 0x15);
         int headerBgColor = (headerAlpha << 24) & 0xFF000000;
 
-        float requestedScale = Math.clamp(this.config.hudScale, 0.7f, 1.5f);
-        boolean scaled = ArdaniaHudRenderer.pushAndScale(graphics, requestedScale);
-        float effectiveScale = scaled ? requestedScale : 1.0f;
-
-        int scaledWidth = Math.max(1, Math.round(this.width / effectiveScale));
-        int scaledHeight = Math.max(1, Math.round(this.height / effectiveScale));
+        float scale = Math.clamp(this.config.hudScale, 0.7f, 1.5f);
+        int scaledWidth = Math.max(1, Math.round(this.width / scale));
+        int scaledHeight = Math.max(1, Math.round(this.height / scale));
 
         HudLayout.LayoutResult layout = HudLayout.calculate(
                 this.previewLines,
@@ -172,12 +169,14 @@ public final class ArdaniaHudEditorScreen extends Screen {
                 this.font::width
         );
 
-        this.lastHudBoxX = Math.round(layout.boxX() * effectiveScale);
-        this.lastHudBoxY = Math.round(layout.boxY() * effectiveScale);
-        this.lastHudBoxWidth = Math.round(layout.boxWidth() * effectiveScale);
-        this.lastHudBoxHeight = Math.round(layout.boxHeight() * effectiveScale);
+        this.lastHudBoxX = Math.round(layout.boxX() * scale);
+        this.lastHudBoxY = Math.round(layout.boxY() * scale);
+        this.lastHudBoxWidth = Math.round(layout.boxWidth() * scale);
+        this.lastHudBoxHeight = Math.round(layout.boxHeight() * scale);
         updateButtonPositions();
 
+        graphics.pose().pushMatrix();
+        graphics.pose().scale(scale, scale);
         try {
             graphics.fill(layout.boxX(), layout.boxY(), layout.boxX() + layout.boxWidth(), layout.boxY() + layout.boxHeight(), bgColor);
             graphics.fill(layout.boxX(), layout.boxY(), layout.boxX() + layout.boxWidth(), layout.boxY() + layout.headerHeight(), headerBgColor);
@@ -192,18 +191,16 @@ public final class ArdaniaHudEditorScreen extends Screen {
 
             for (HudLayout.RenderableLine line : layout.lines()) {
                 if (line.centered()) {
-                    ArdaniaHudRenderer.drawText(graphics, this.font, line.left(), line.leftX(), line.y(), 0xFFFFFFFF, true);
+                    graphics.drawString(this.font, line.left(), line.leftX(), line.y(), 0xFFFFFFFF, true);
                 } else {
-                    ArdaniaHudRenderer.drawText(graphics, this.font, line.left(), line.leftX(), line.y(), 0xFFFFFFFF, true);
+                    graphics.drawString(this.font, line.left(), line.leftX(), line.y(), 0xFFFFFFFF, true);
                     if (line.right() != null) {
-                        ArdaniaHudRenderer.drawText(graphics, this.font, line.right(), line.rightX(), line.y(), 0xFFFFFFFF, true);
+                        graphics.drawString(this.font, line.right(), line.rightX(), line.y(), 0xFFFFFFFF, true);
                     }
                 }
             }
         } finally {
-            if (scaled) {
-                ArdaniaHudRenderer.popPose(graphics);
-            }
+            graphics.pose().popMatrix();
         }
 
         // Umrandung um HUD
@@ -215,7 +212,7 @@ public final class ArdaniaHudEditorScreen extends Screen {
         int infoY = buttonsAtTop ? (this.height - 28) : 12;
         Component infoMsg = ArdaniaI18n.translate("config.ardania_hud.editor.info");
         int infoW = this.font.width(infoMsg);
-        ArdaniaHudRenderer.drawText(graphics, this.font, infoMsg, (this.width - infoW) / 2, infoY, 0xFFE0E0E0, true);
+        graphics.drawString(this.font, infoMsg, (this.width - infoW) / 2, infoY, 0xFFE0E0E0, true);
     }
 
     private static void drawHollowRect(GuiGraphics graphics, int x, int y, int w, int h, int color) {

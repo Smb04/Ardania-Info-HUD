@@ -1,32 +1,24 @@
 package de.ardania.hud;
 
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 
 /**
- * HUD-Renderer fuer Minecraft 1.21.x ueber Fabric HudRenderCallback.
+ * HUD-Renderer fuer Minecraft 1.21.8 - 1.21.11 ueber Fabric HudElement.
  *
- * <p>Zeichnet das Scoreboard-HUD-Overlay, berechnet weiche Kanten-Einblendungen,
- * verarbeitet dynamische Skalierung ueber den PoseStack und prueft
+ * <p>Zeichnet das Scoreboard-HUD-Overlay in einem eigenen Stratum, berechnet weiche
+ * Kanten-Einblendungen, skaliert ueber {@code Matrix3x2fStack} und prueft
  * weltbezogene Sichtbarkeitsprofile.</p>
  */
-public final class ArdaniaHudRenderer implements HudRenderCallback {
+public final class ArdaniaHudRenderer implements HudElement {
 
     private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final float SLIDE_SPEED = 3.5f;
-
-    private static final MethodHandle DRAW_COMPONENT_HANDLE = resolveDrawComponentHandle();
 
     private final ArdaniaState state;
     private float slideProgress = 1.0f;
@@ -39,7 +31,7 @@ public final class ArdaniaHudRenderer implements HudRenderCallback {
     }
 
     @Override
-    public void onHudRender(GuiGraphics graphics, DeltaTracker deltaTracker) {
+    public void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
         Minecraft client = Minecraft.getInstance();
         ArdaniaConfig config = ArdaniaConfig.getInstance();
 
@@ -112,11 +104,8 @@ public final class ArdaniaHudRenderer implements HudRenderCallback {
         }
 
         float scale = Math.clamp(config.hudScale, 0.7f, 1.5f);
-        boolean scaled = pushAndScale(graphics, scale);
-        float effectiveScale = scaled ? scale : 1.0f;
-
-        int scaledWidth = Math.max(1, Math.round(graphics.guiWidth() / effectiveScale));
-        int scaledHeight = Math.max(1, Math.round(graphics.guiHeight() / effectiveScale));
+        int scaledWidth = Math.max(1, Math.round(graphics.guiWidth() / scale));
+        int scaledHeight = Math.max(1, Math.round(graphics.guiHeight() / scale));
 
         HudLayout.LayoutResult layout = HudLayout.calculate(
                 lines,
@@ -132,6 +121,9 @@ public final class ArdaniaHudRenderer implements HudRenderCallback {
         int headerAlpha = Math.min(255, alpha + 0x15);
         int headerBgColor = (headerAlpha << 24) & 0xFF000000;
 
+        graphics.nextStratum();
+        graphics.pose().pushMatrix();
+        graphics.pose().scale(scale, scale);
         try {
             graphics.fill(layout.boxX(), layout.boxY(), layout.boxX() + layout.boxWidth(), layout.boxY() + layout.boxHeight(), bgColor);
             graphics.fill(layout.boxX(), layout.boxY(), layout.boxX() + layout.boxWidth(), layout.boxY() + layout.headerHeight(), headerBgColor);
@@ -146,123 +138,17 @@ public final class ArdaniaHudRenderer implements HudRenderCallback {
 
             for (HudLayout.RenderableLine line : layout.lines()) {
                 if (line.centered()) {
-                    drawText(graphics, font, line.left(), line.leftX(), line.y(), TEXT_COLOR, true);
+                    graphics.drawString(font, line.left(), line.leftX(), line.y(), TEXT_COLOR, true);
                 } else {
-                    drawText(graphics, font, line.left(), line.leftX(), line.y(), TEXT_COLOR, true);
+                    graphics.drawString(font, line.left(), line.leftX(), line.y(), TEXT_COLOR, true);
                     if (line.right() != null) {
-                        drawText(graphics, font, line.right(), line.rightX(), line.y(), TEXT_COLOR, true);
+                        graphics.drawString(font, line.right(), line.rightX(), line.y(), TEXT_COLOR, true);
                     }
                 }
             }
         } finally {
-            if (scaled) {
-                popPose(graphics);
-            }
+            graphics.pose().popMatrix();
         }
-    }
-
-    static boolean pushAndScale(GuiGraphics graphics, float scale) {
-        if (graphics == null) return false;
-        try {
-            // Direkter Aufruf (wird von Fabric Loom zu Intermediary remapped)
-            graphics.pose().pushPose();
-            graphics.pose().scale(scale, scale, 1.0f);
-            return true;
-        } catch (Throwable t) {
-            // Umfassender Reflection-Fallback fuer saemtliche Runtime-Umgebungen
-            try {
-                Object poseObj = null;
-                for (String name : new String[] { "pose", "method_51448", "getMatrices" }) {
-                    try {
-                        Method m = graphics.getClass().getMethod(name);
-                        poseObj = m.invoke(graphics);
-                        if (poseObj != null) break;
-                    } catch (Throwable ignored) {}
-                }
-                if (poseObj == null) return false;
-
-                for (String pushName : new String[] { "pushPose", "method_22903", "push", "pushMatrix" }) {
-                    try {
-                        Method m = poseObj.getClass().getMethod(pushName);
-                        m.invoke(poseObj);
-                        break;
-                    } catch (Throwable ignored) {}
-                }
-
-                for (String scaleName : new String[] { "scale", "method_22905" }) {
-                    try {
-                        Method m = poseObj.getClass().getMethod(scaleName, float.class, float.class, float.class);
-                        m.invoke(poseObj, scale, scale, 1.0f);
-                        return true;
-                    } catch (Throwable ignored) {}
-                    try {
-                        Method m = poseObj.getClass().getMethod(scaleName, float.class, float.class);
-                        m.invoke(poseObj, scale, scale);
-                        return true;
-                    } catch (Throwable ignored) {}
-                }
-            } catch (Throwable ignored) {}
-            return false;
-        }
-    }
-
-    static void popPose(GuiGraphics graphics) {
-        if (graphics == null) return;
-        try {
-            graphics.pose().popPose();
-        } catch (Throwable t) {
-            try {
-                Object poseObj = null;
-                for (String name : new String[] { "pose", "method_51448", "getMatrices" }) {
-                    try {
-                        Method m = graphics.getClass().getMethod(name);
-                        poseObj = m.invoke(graphics);
-                        if (poseObj != null) break;
-                    } catch (Throwable ignored) {}
-                }
-                if (poseObj == null) return;
-                for (String popName : new String[] { "popPose", "method_22909", "pop", "popMatrix" }) {
-                    try {
-                        Method m = poseObj.getClass().getMethod(popName);
-                        m.invoke(poseObj);
-                        break;
-                    } catch (Throwable ignored) {}
-                }
-            } catch (Throwable ignored) {}
-        }
-    }
-
-    static void drawText(GuiGraphics graphics, Font font, Component text, int x, int y, int color, boolean shadow) {
-        try {
-            DRAW_COMPONENT_HANDLE.invokeExact(graphics, font, text, x, y, color, shadow);
-        } catch (Throwable t) {
-            ArdaniaClientMod.LOGGER.error("Fehler beim Zeichnen von HUD-Text", t);
-        }
-    }
-
-    private static MethodHandle resolveDrawComponentHandle() {
-        Class<?>[] expectedParams = new Class<?>[]{Font.class, Component.class, int.class, int.class, int.class, boolean.class};
-        try {
-            MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-            for (Method method : GuiGraphics.class.getMethods()) {
-                if (Arrays.equals(method.getParameterTypes(), expectedParams)) {
-                    MethodHandle mh = lookup.unreflect(method);
-                    return mh.asType(MethodType.methodType(
-                            void.class,
-                            GuiGraphics.class,
-                            Font.class,
-                            Component.class,
-                            int.class,
-                            int.class,
-                            int.class,
-                            boolean.class
-                    ));
-                }
-            }
-        } catch (IllegalAccessException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-        throw new ExceptionInInitializerError("Keine passende drawString-Methode in GuiGraphics gefunden");
     }
 
     public boolean isShowing(long now) {

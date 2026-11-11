@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Ein kompaktes, elegantes Client-Side Informations-Overlay für den Minecraft-Server Ardania.de.</strong><br>
-  Fabric · Minecraft <strong>1.21 – 1.21.11</strong> und <strong>26.2 – 26.3</strong> · Java 21 / 25
+  Fabric · Minecraft <strong>1.21.8 – 1.21.11</strong> und <strong>26.2 – 26.3</strong> · Java 21 / 25
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 
 * 🖱️ **Visueller In-Game HUD-Editor (freies Verschieben mit Maus und Tastatur)**:
   * Platziere dein HUD völlig frei per **Drag & Drop** oder mit den **Pfeiltasten** (`/ardaniahud edit` oder ModMenu → *HUD frei verschieben ...*).
-  * **Versionssichere Eingabe**: 1.21.x nutzt direktes **GLFW-Polling** und funktioniert damit auch auf **1.21.9–1.21.11**; unter 26.x greift die Dual-Layer-Engine mit **GLFW (26.2)** und **SDL3 (26.3)**.
+  * **Versionssichere Eingabe**: 1.21.x (ab 1.21.8) nutzt direktes **GLFW-Polling** und funktioniert damit auch auf **1.21.9–1.21.11**; unter 26.x greift die Dual-Layer-Engine mit **GLFW (26.2)** und **SDL3 (26.3)**.
   * **Magnetisches Einrasten (*Snap-to-Edge & Center*)**: Ränder und Bildschirmmitten rasten mit feinen Cyan-Hilfslinien automatisch ein.
   * **Pfeiltasten-Feinjustierung**: 1 px pro Tastendruck, mit gehaltener `Shift`-Taste 5 px.
   * **Auto-Dodge-Toolbar**: Die Editor-Buttons weichen automatisch nach oben aus, wenn das HUD im unteren Bildschirmbereich liegt.
@@ -105,7 +105,7 @@ Ab Version **2.0.0** werden **1.21.x** und **26.x** als zwei getrennte Release-T
 
 | Release-Train | Minecraft | Java | Fabric Loader | Datei | Changelog |
 | --- | --- | --- | --- | --- | --- |
-| **1.21.x** | 1.21 – 1.21.11 | **21+** | ≥ 0.15.0 | `ardania-info-hud-mc1.21.x-2.0.0.jar` | [Release Notes](RELEASE_NOTES_MC1.21.x.md) |
+| **1.21.x** | 1.21.8 – 1.21.11 | **21+** | ≥ 0.16.13 | `ardania-info-hud-mc1.21.x-2.0.0.jar` | [Release Notes](RELEASE_NOTES_MC1.21.x.md) |
 | **26.x** | 26.2 – 26.3 | **25+** | ≥ 0.19.5 | `ardania-info-hud-mc26.x-2.0.0.jar` | [Release Notes](RELEASE_NOTES_MC26.x.md) |
 
 > **Wichtig:** Die Mod ist ausschließlich für **Ardania.de** gedacht und funktioniert nur dort. Es werden keine Daten an Dritte gesendet.
@@ -116,12 +116,12 @@ Ab Version **2.0.0** werden **1.21.x** und **26.x** als zwei getrennte Release-T
 ## 📥 Installation
 
 1. Installiere den [Fabric Loader](https://fabricmc.net/use/) für deine Minecraft-Version:
-   * **1.21.x:** Fabric Loader **≥ 0.15.0**, Java **21+**
+   * **1.21.x:** Fabric Loader **≥ 0.16.13**, Java **21+**
    * **26.x:** Fabric Loader **≥ 0.19.5**, Java **25+**
 2. Installiere die zur Minecraft-Version passende [Fabric API](https://modrinth.com/mod/fabric-api) in deinen `mods`-Ordner.
 3. *(Empfohlen)* Installiere [ModMenu](https://modrinth.com/mod/modmenu), um alle Einstellungen bequem im Spiel anzupassen.
 4. Lade die passende JAR für Version **2.0.0** herunter und lege sie in deinen `.minecraft/mods`-Ordner:
-   * **Minecraft 1.21 – 1.21.11**: `ardania-info-hud-mc1.21.x-2.0.0.jar`
+   * **Minecraft 1.21.8 – 1.21.11**: `ardania-info-hud-mc1.21.x-2.0.0.jar`
    * **Minecraft 26.2 – 26.3**: `ardania-info-hud-mc26.x-2.0.0.jar`
 5. Starte das Spiel. Das HUD erscheint automatisch, sobald du dich mit **Ardania.de** verbindest.
 
@@ -220,7 +220,7 @@ Der Build führt automatisch alle **80 Unit-Tests** aus (Parser, Server-Erkennun
 ```text
 src/main/java        Gemeinsame Logik (Parser, State, Sync, Detector, Layout, Config)
 src/main/resources   fabric.mod.json, Mixins, Sprachen (DE/EN/ES/FR)
-src/mc121/java       1.21.x-spezifischer Renderer, Config-Screen und HUD-Editor (GLFW)
+src/mc121/java       1.21.8–1.21.11-spezifischer Renderer, Config-Screen und HUD-Editor (GLFW)
 src/test/java        Unit-Tests
 scripts/build-all.ps1  Build + Tests + Distribution pro Target
 build-targets.json   Minecraft-Target-Matrix

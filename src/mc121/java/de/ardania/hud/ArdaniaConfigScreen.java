@@ -6,7 +6,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Dreistufiger Konfigurations-Bildschirm fuer Minecraft 1.21.x (ModMenu & /ardaniahud config).
+ * Dreistufiger Konfigurations-Bildschirm fuer Minecraft 1.21.8+ (ModMenu & /ardaniahud config).
  *
  * <p>Bietet Tabs fuer:</p>
  * <ul>
@@ -504,7 +504,7 @@ public final class ArdaniaConfigScreen extends Screen {
         super.render(graphics, mouseX, mouseY, delta);
         Component localizedTitle = ArdaniaI18n.translate("config.ardania_hud.title");
         int titleX = (this.width - this.font.width(localizedTitle)) / 2;
-        ArdaniaHudRenderer.drawText(graphics, this.font, localizedTitle, titleX, 10, 0xFFFFFFFF, true);
+        graphics.drawString(this.font, localizedTitle, titleX, 10, 0xFFFFFFFF, true);
     }
 
     @Override

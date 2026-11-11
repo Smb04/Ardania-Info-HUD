@@ -724,11 +724,10 @@ public final class ArdaniaSyncManager {
         if (client == null || client.player == null) {
             return false;
         }
-        // Direkte Methodenpruefung ueber alle bekannten Mapping-Namen hinweg:
+        // Direkte Methodenpruefung ueber alle unterstuetzten Mapping-Namen hinweg:
         // - "isCreative": Mojang Mappings / MC 26.x
-        // - "method_7337": Fabric Intermediary fuer 1.21.0 bis 1.21.4
-        // - "method_68878": Fabric Intermediary fuer 1.21.5 bis 1.21.11
-        for (String methodName : new String[] { "isCreative", "method_7337", "method_68878" }) {
+        // - "method_68878": Fabric Intermediary fuer 1.21.8 bis 1.21.11
+        for (String methodName : new String[] { "isCreative", "method_68878" }) {
             try {
                 Method m = client.player.getClass().getMethod(methodName);
                 Object res = m.invoke(client.player);

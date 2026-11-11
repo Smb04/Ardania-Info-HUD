@@ -4,7 +4,7 @@
 </center>
 
 A compact, sleek client-side info overlay for the German Minecraft server **Ardania.de**.  
-Compatible with **Fabric** for Minecraft **1.21.X (1.21 – 1.21.11)**, and **26.2 / 26.3** via one shared 26.x JAR.
+Compatible with **Fabric** for Minecraft **1.21.X (1.21.8 – 1.21.11)**, and **26.2 / 26.3** via one shared 26.x JAR.
 ---
 
 ## ✨ Features (Version 2.0)

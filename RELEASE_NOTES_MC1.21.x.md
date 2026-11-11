@@ -1,12 +1,12 @@
 # Ardania Info HUD – v2.0.0 für Minecraft 1.21.x
 
-**Release-Train:** 1.21.x · **Minecraft:** 1.21 – 1.21.11 · **Loader:** Fabric · **Java:** 21+
+**Release-Train:** 1.21.x · **Minecraft:** 1.21.8 – 1.21.11 · **Loader:** Fabric ≥ 0.16.13 · **Java:** 21+
 **Datei:** `ardania-info-hud-mc1.21.x-2.0.0.jar`
 
 > Dieses Release wird unabhängig vom 26.x-Release veröffentlicht.
 > Der 26.x-Build hat eigene Hinweise: [`RELEASE_NOTES_MC26.x.md`](https://github.com/Smb04/Ardania-Info-HUD/blob/master/RELEASE_NOTES_MC26.x.md).
 
-Version **2.0.0** bringt den visuellen HUD-Editor, sechs feste Positionen, AFK-Schutz, Fallback-Resilienz, volle Moderator-Kompatibilität, den Job-XP-Balken und unterserver-bezogene Sichtbarkeitsprofile auf **alle** 1.21-Versionen – inklusive eines gezielten Editor-Fixes für **1.21.9 bis 1.21.11**.
+Version **2.0.0** bringt den visuellen HUD-Editor, sechs feste Positionen, AFK-Schutz, Fallback-Resilienz, volle Moderator-Kompatibilität, den Job-XP-Balken und unterserver-bezogene Sichtbarkeitsprofile auf **1.21.8 bis 1.21.11** (ältere 1.21-Versionen vor 1.21.8 werden nicht mehr unterstützt) – inklusive nativer 1.21.8-Rendering-Pipeline (`HudElement` + `Matrix3x2fStack`) sowie Editor-Fix für **1.21.9 bis 1.21.11**.
 
 ---
 
@@ -148,21 +148,21 @@ Starting with Minecraft 1.21.9, vanilla no longer exposes reliable mouse state w
 
 | Anforderung | Wert |
 | --- | --- |
-| Minecraft | **1.21 – 1.21.11** (eine universelle JAR) |
-| Mod-Loader | **Fabric Loader ≥ 0.15.0** |
+| Minecraft | **1.21.8 – 1.21.11** (eine universelle JAR) |
+| Mod-Loader | **Fabric Loader ≥ 0.16.13** |
 | Java | **Java 21 oder neuer** |
 | Pflicht | **Fabric API** (passend zur Minecraft-Version) |
 | Empfohlen | **ModMenu** |
 | Server | ausschließlich **Ardania.de** |
 
-1. Fabric Loader für deine 1.21-Version installieren.
+1. Fabric Loader für deine 1.21-Version (≥ 0.16.13) installieren.
 2. Fabric API in den `mods`-Ordner legen.
 3. *(Empfohlen)* ModMenu installieren.
 4. `ardania-info-hud-mc1.21.x-2.0.0.jar` nach `.minecraft/mods` kopieren.
 
 **Enthaltene Datei:** `ardania-info-hud-mc1.21.x-2.0.0.jar` *(Java 21+)*
 
-> **Hinweis:** Die JAR wird gegen 1.21.1 gebaut und ist für den gesamten Bereich `>=1.21 <=1.21.11` freigegeben. Der Editor-Input nutzt ausschließlich GLFW und verhält sich damit auf allen 1.21-Versionen identisch.
+> **Hinweis:** Die JAR wird nativ gegen **1.21.8** (`HudElement`, `Matrix3x2fStack`, Strata-Trennung) gebaut und ist für `>=1.21.8 <=1.21.11` freigegeben. Der Editor-Input nutzt ausschließlich GLFW und verhält sich damit auf 1.21.8 bis 1.21.11 identisch.
 
 ---
 
@@ -170,7 +170,7 @@ Starting with Minecraft 1.21.9, vanilla no longer exposes reliable mouse state w
 
 * **Version:** `2.0.0`
 * **Release-Train:** `mc1.21.x`
-* **Minecraft:** `1.21`, `1.21.1`, `1.21.2`, `1.21.3`, `1.21.4`, `1.21.5`, `1.21.6`, `1.21.7`, `1.21.8`, `1.21.9`, `1.21.10`, `1.21.11`
+* **Minecraft:** `1.21.8`, `1.21.9`, `1.21.10`, `1.21.11`
 * **Loader:** Fabric
 * **Java:** 21+
 * **Build:** separat gebaut und getestet, 80 Unit-Tests grün.
