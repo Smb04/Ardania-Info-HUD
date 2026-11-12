@@ -1,10 +1,26 @@
-# Ardania Info HUD – v2.0.0 für Minecraft 1.21.x
+# Ardania Info HUD – v2.0.1 für Minecraft 1.21.x
 
 **Release-Train:** 1.21.x · **Minecraft:** 1.21.8 – 1.21.11 · **Loader:** Fabric ≥ 0.16.13 · **Java:** 21+
-**Datei:** `ardania-info-hud-mc1.21.x-2.0.0.jar`
+**Datei:** `ardania-info-hud-mc1.21.x-2.0.1.jar`
 
 > Dieses Release wird unabhängig vom 26.x-Release veröffentlicht.
 > Der 26.x-Build hat eigene Hinweise: [`RELEASE_NOTES_MC26.x.md`](https://github.com/Smb04/Ardania-Info-HUD/blob/master/RELEASE_NOTES_MC26.x.md).
+
+## 🔧 Neu in v2.0.1 (Hotfix)
+
+### 🇩🇪 Behoben
+* **LabyClient- & Chat-Fix:** Die Sync-Queue pausiert nun bei *jedem* geöffneten Screen (inkl. LabyMod `LabyScreenRenderer`, Vanilla-Chat, Inventar/Kisten) plus **2,5 s Nachlaufzeit** nach dem Schließen bzw. Absenden einer Chat-Nachricht.
+* **`J`-Taste im Chat geschützt:** `syncKey` (`J`) und der Toggle-Key lösen nicht mehr aus, während ein Screen/Chat offen ist.
+* **Keine ungewollten `/jobs stats`-Ausgaben im Chat:** `/jobs quests` (u. a. `browse`/`top`/`info`) deaktiviert die Unterdrückung nicht mehr; Tagesquest-Meldungen (`[ArdaniaJobs] ... tägliche Aufgaben ...`) triggern keinen automatischen Job-Sync mehr; doppelte Queue-Ausführung verhindert.
+* **`/ontime`-Fix nach Stillstand:** Längeres Unterdrückungsfenster (**8 s**) für Proxy-Latenzen inkl. sauberer Unterdrückung der zugehörigen `§m`-Trenn- und Leerzeilen; aktives Chatten zählt nun als Aktivität (kein 5-Minuten-AFK-Stau).
+
+### 🇬🇧 Fixed
+* **LabyClient & Chat Fix:** The sync queue now pauses whenever *any* GUI screen is open (including LabyMod's `LabyScreenRenderer`, vanilla chat, inventory/chests) plus a **2.5 s grace period** after closing or sending a chat message.
+* **`J` Keybind Guard:** `syncKey` and `toggleKey` are ignored while any screen or chat is open.
+* **No more unwanted `/jobs stats` chat spam:** `/jobs quests` (and `browse`/`top`/`info`) no longer disables suppression; daily quest notices no longer trigger background job syncs; duplicate queued `jobs stats` dispatches prevented.
+* **`/ontime` Idle Fix:** Extended proxy suppression window to **8 s**, cleanly hides matching `§m`/Unicode separator and blank lines, and counts active chatting as player activity.
+
+---
 
 Version **2.0.0** bringt den visuellen HUD-Editor, sechs feste Positionen, AFK-Schutz, Fallback-Resilienz, volle Moderator-Kompatibilität, den Job-XP-Balken und unterserver-bezogene Sichtbarkeitsprofile auf **1.21.8 bis 1.21.11** (ältere 1.21-Versionen vor 1.21.8 werden nicht mehr unterstützt) – inklusive nativer 1.21.8-Rendering-Pipeline (`HudElement` + `Matrix3x2fStack`) sowie Editor-Fix für **1.21.9 bis 1.21.11**.
 
@@ -158,9 +174,9 @@ Starting with Minecraft 1.21.9, vanilla no longer exposes reliable mouse state w
 1. Fabric Loader für deine 1.21-Version (≥ 0.16.13) installieren.
 2. Fabric API in den `mods`-Ordner legen.
 3. *(Empfohlen)* ModMenu installieren.
-4. `ardania-info-hud-mc1.21.x-2.0.0.jar` nach `.minecraft/mods` kopieren.
+4. `ardania-info-hud-mc1.21.x-2.0.1.jar` nach `.minecraft/mods` kopieren.
 
-**Enthaltene Datei:** `ardania-info-hud-mc1.21.x-2.0.0.jar` *(Java 21+)*
+**Enthaltene Datei:** `ardania-info-hud-mc1.21.x-2.0.1.jar` *(Java 21+)*
 
 > **Hinweis:** Die JAR wird nativ gegen **1.21.8** (`HudElement`, `Matrix3x2fStack`, Strata-Trennung) gebaut und ist für `>=1.21.8 <=1.21.11` freigegeben. Der Editor-Input nutzt ausschließlich GLFW und verhält sich damit auf 1.21.8 bis 1.21.11 identisch.
 
@@ -168,9 +184,9 @@ Starting with Minecraft 1.21.9, vanilla no longer exposes reliable mouse state w
 
 ## ✅ Release-Metadaten
 
-* **Version:** `2.0.0`
+* **Version:** `2.0.1`
 * **Release-Train:** `mc1.21.x`
 * **Minecraft:** `1.21.8`, `1.21.9`, `1.21.10`, `1.21.11`
 * **Loader:** Fabric
 * **Java:** 21+
-* **Build:** separat gebaut und getestet, 80 Unit-Tests grün.
+* **Build:** separat gebaut und getestet, 86 Unit-Tests grün.

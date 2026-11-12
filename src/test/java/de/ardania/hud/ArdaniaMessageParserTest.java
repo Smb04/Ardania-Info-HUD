@@ -606,4 +606,27 @@ class ArdaniaMessageParserTest {
         assertEquals("1,5M", ArdaniaState.formatCompactMoney(new java.math.BigDecimal("1500000.00")));
         assertEquals("500,00", ArdaniaState.formatCompactMoney(new java.math.BigDecimal("500.00")));
     }
+
+    @Test
+    void questMessagesDoNotTriggerJobSyncAndForeignJobsHeaderIsIgnored() {
+        assertFalse(parser.isJobNotification("[ArdaniaJobs] Insgesamt 1507 t\u00E4gliche Aufgaben erf\u00FCllt."));
+        assertFalse(parser.isJobNotification("T\u00E4gliche Aufgaben:"));
+        assertFalse(parser.isJobNotification("Du kannst mit /skipquest [Beruf] [Quest] Aufgaben \u00FCberspringen."));
+
+        assertEquals("Zaoth0", parser.extractJobsPlayerName("[ArdaniaJobs] Spieler: Zaoth0"));
+        state.addOrUpdateJob("Miner", 22, false);
+        assertFalse(parser.parse("[ArdaniaJobs] Spieler: Zaoth0\nMax Level 30 for Mobhunter", false, "PX_Sven"));
+        assertEquals(1, state.getJobs().size());
+        assertEquals("Miner", state.getJobs().get(0).name());
+    }
+
+    @Test
+    void strikethroughAndUnicodeOntimeSeparatorsAreRecognized() {
+        assertTrue(parser.isOntimeSeparatorLine("\u00A7m                                                     "));
+        assertTrue(parser.isOntimeSeparatorLine("-----------------------------------------------------"));
+        assertTrue(parser.isOntimeSeparatorLine("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"));
+        assertTrue(parser.isOntimeSeparatorOrBlankLine(""));
+        assertFalse(parser.isOntimeSeparatorLine("Hallo Welt"));
+        assertFalse(parser.isOntimeSeparatorOrBlankLine("[Global][Mod] PX_Sven: Ach stimmt nicht"));
+    }
 }

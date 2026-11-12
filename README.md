@@ -1,4 +1,4 @@
-# Ardania Info HUD 2.0.0
+# Ardania Info HUD 2.0.1
 
 <p align="center">
   <img src="src/main/resources/assets/ardania_hud/icon.png" alt="Ardania Info HUD Logo" width="128" height="128"/>
@@ -105,8 +105,8 @@ Ab Version **2.0.0** werden **1.21.x** und **26.x** als zwei getrennte Release-T
 
 | Release-Train | Minecraft | Java | Fabric Loader | Datei | Changelog |
 | --- | --- | --- | --- | --- | --- |
-| **1.21.x** | 1.21.8 – 1.21.11 | **21+** | ≥ 0.16.13 | `ardania-info-hud-mc1.21.x-2.0.0.jar` | [Release Notes](RELEASE_NOTES_MC1.21.x.md) |
-| **26.x** | 26.2 – 26.3 | **25+** | ≥ 0.19.5 | `ardania-info-hud-mc26.x-2.0.0.jar` | [Release Notes](RELEASE_NOTES_MC26.x.md) |
+| **1.21.x** | 1.21.8 – 1.21.11 | **21+** | ≥ 0.16.13 | `ardania-info-hud-mc1.21.x-2.0.1.jar` | [Release Notes](RELEASE_NOTES_MC1.21.x.md) |
+| **26.x** | 26.2 – 26.3 | **25+** | ≥ 0.19.5 | `ardania-info-hud-mc26.x-2.0.1.jar` | [Release Notes](RELEASE_NOTES_MC26.x.md) |
 
 > **Wichtig:** Die Mod ist ausschließlich für **Ardania.de** gedacht und funktioniert nur dort. Es werden keine Daten an Dritte gesendet.
 
@@ -120,9 +120,9 @@ Ab Version **2.0.0** werden **1.21.x** und **26.x** als zwei getrennte Release-T
    * **26.x:** Fabric Loader **≥ 0.19.5**, Java **25+**
 2. Installiere die zur Minecraft-Version passende [Fabric API](https://modrinth.com/mod/fabric-api) in deinen `mods`-Ordner.
 3. *(Empfohlen)* Installiere [ModMenu](https://modrinth.com/mod/modmenu), um alle Einstellungen bequem im Spiel anzupassen.
-4. Lade die passende JAR für Version **2.0.0** herunter und lege sie in deinen `.minecraft/mods`-Ordner:
-   * **Minecraft 1.21.8 – 1.21.11**: `ardania-info-hud-mc1.21.x-2.0.0.jar`
-   * **Minecraft 26.2 – 26.3**: `ardania-info-hud-mc26.x-2.0.0.jar`
+4. Lade die passende JAR für Version **2.0.1** herunter und lege sie in deinen `.minecraft/mods`-Ordner:
+   * **Minecraft 1.21.8 – 1.21.11**: `ardania-info-hud-mc1.21.x-2.0.1.jar`
+   * **Minecraft 26.2 – 26.3**: `ardania-info-hud-mc26.x-2.0.1.jar`
 5. Starte das Spiel. Das HUD erscheint automatisch, sobald du dich mit **Ardania.de** verbindest.
 
 > Lege immer nur **eine** der beiden JARs in den `mods`-Ordner.
@@ -184,16 +184,16 @@ Die Mod bietet ein übersichtliches, in **3 Reiter (Tabs)** aufgeteiltes Ingame-
 <a id="release-notes"></a>
 ## 📝 Release Notes
 
-* [Release-Übersicht 2.0.0](RELEASE_NOTES.md)
-* [Minecraft 1.21.x – v2.0.0](RELEASE_NOTES_MC1.21.x.md) · inkl. Editor-Fix für 1.21.9–1.21.11 und Spielzeit-Fix
-* [Minecraft 26.x – v2.0.0](RELEASE_NOTES_MC26.x.md) · gemeinsames JAR für 26.2 und 26.3
+* [Release-Übersicht 2.0.1](RELEASE_NOTES.md)
+* [Minecraft 1.21.x – v2.0.1](RELEASE_NOTES_MC1.21.x.md) · inkl. Chat-/LabyClient-Fix, Editor-Fix (1.21.9–1.21.11) und Spielzeit-Fix
+* [Minecraft 26.x – v2.0.1](RELEASE_NOTES_MC26.x.md) · gemeinsames JAR für 26.2 und 26.3 inkl. Chat-/LabyClient-Fix
 
 ---
 
 <a id="bauen"></a>
 ## 🛠️ Bauen aus dem Quellcode
 
-**Voraussetzung:** JDK **25 oder neuer** (getestet mit JDK 26). Die Targets werden aus `build-targets.json` gelesen.
+**Voraussetzung:** JDK **25 oder neuer** (getestet mit JDK 25/26). Die Targets werden aus `build-targets.json` gelesen.
 
 ```powershell
 # Beide Targets nacheinander bauen und testen:
@@ -209,11 +209,11 @@ Die Mod bietet ein übersichtliches, in **3 Reiter (Tabs)** aufgeteiltes Ingame-
 Die fertigen JARs liegen anschließend unter:
 
 ```text
-build/distributions/mc1.21.x/ardania-info-hud-mc1.21.x-2.0.0.jar
-build/distributions/mc26.x/ardania-info-hud-mc26.x-2.0.0.jar
+build/distributions/mc1.21.x/ardania-info-hud-mc1.21.x-2.0.1.jar
+build/distributions/mc26.x/ardania-info-hud-mc26.x-2.0.1.jar
 ```
 
-Der Build führt automatisch alle **80 Unit-Tests** aus (Parser, Server-Erkennung, Sync, Layout & Config).
+Der Build führt automatisch alle **86 Unit-Tests** aus (Parser, Server-Erkennung, Sync, Layout & Config).
 
 ### Projektstruktur
 

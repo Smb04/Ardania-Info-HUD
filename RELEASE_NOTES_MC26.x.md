@@ -1,10 +1,26 @@
-# Ardania Info HUD – v2.0.0 für Minecraft 26.x
+# Ardania Info HUD – v2.0.1 für Minecraft 26.x
 
 **Release-Train:** 26.x · **Minecraft:** 26.2 – 26.3 · **Loader:** Fabric · **Java:** 25+
-**Datei:** `ardania-info-hud-mc26.x-2.0.0.jar`
+**Datei:** `ardania-info-hud-mc26.x-2.0.1.jar`
 
 > Dieses Release wird unabhängig vom 1.21.x-Release veröffentlicht.
 > Der 1.21.x-Build hat eigene Hinweise: [`RELEASE_NOTES_MC1.21.x.md`](https://github.com/Smb04/Ardania-Info-HUD/blob/master/RELEASE_NOTES_MC1.21.x.md).
+
+## 🔧 Neu in v2.0.1 (Hotfix)
+
+### 🇩🇪 Behoben
+* **LabyClient- & Chat-Fix:** Die Sync-Queue pausiert nun bei *jedem* geöffneten Screen (inkl. LabyMod `LabyScreenRenderer`, Vanilla-Chat, Inventar/Kisten) plus **2,5 s Nachlaufzeit** nach dem Schließen bzw. Absenden einer Chat-Nachricht.
+* **`J`-Taste im Chat geschützt:** `syncKey` (`J`) und der Toggle-Key lösen nicht mehr aus, während ein Screen/Chat offen ist.
+* **Keine ungewollten `/jobs stats`-Ausgaben im Chat:** `/jobs quests` (u. a. `browse`/`top`/`info`) deaktiviert die Unterdrückung nicht mehr; Tagesquest-Meldungen (`[ArdaniaJobs] ... tägliche Aufgaben ...`) triggern keinen automatischen Job-Sync mehr; doppelte Queue-Ausführung verhindert.
+* **`/ontime`-Fix nach Stillstand:** Längeres Unterdrückungsfenster (**8 s**) für Proxy-Latenzen inkl. sauberer Unterdrückung der zugehörigen `§m`-Trenn- und Leerzeilen; aktives Chatten zählt nun als Aktivität (kein 5-Minuten-AFK-Stau).
+
+### 🇬🇧 Fixed
+* **LabyClient & Chat Fix:** The sync queue now pauses whenever *any* GUI screen is open (including LabyMod's `LabyScreenRenderer`, vanilla chat, inventory/chests) plus a **2.5 s grace period** after closing or sending a chat message.
+* **`J` Keybind Guard:** `syncKey` and `toggleKey` are ignored while any screen or chat is open.
+* **No more unwanted `/jobs stats` chat spam:** `/jobs quests` (and `browse`/`top`/`info`) no longer disables suppression; daily quest notices no longer trigger background job syncs; duplicate queued `jobs stats` dispatches prevented.
+* **`/ontime` Idle Fix:** Extended proxy suppression window to **8 s**, cleanly hides matching `§m`/Unicode separator and blank lines, and counts active chatting as player activity.
+
+---
 
 Version **2.0.0** ist der bisher größte Meilenstein für das **Ardania Info HUD**: freies Verschieben per Maus und Pfeiltasten, sechs feste Positionen, AFK-Schutz, Fallback-Resilienz, volle Moderator-Kompatibilität, ein dezenter Job-XP-Balken und unterserver-bezogene Sichtbarkeitsprofile.
 
@@ -130,17 +146,17 @@ Version **2.0.0** ist der bisher größte Meilenstein für das **Ardania Info HU
 1. Fabric Loader für **26.2** oder **26.3** installieren.
 2. Fabric API in den `mods`-Ordner legen.
 3. *(Empfohlen)* ModMenu installieren.
-4. `ardania-info-hud-mc26.x-2.0.0.jar` nach `.minecraft/mods` kopieren.
+4. `ardania-info-hud-mc26.x-2.0.1.jar` nach `.minecraft/mods` kopieren.
 
-**Enthaltene Datei:** `ardania-info-hud-mc26.x-2.0.0.jar` *(Java 25+)*
+**Enthaltene Datei:** `ardania-info-hud-mc26.x-2.0.1.jar` *(Java 25+)*
 
 ---
 
 ## ✅ Release-Metadaten
 
-* **Version:** `2.0.0`
+* **Version:** `2.0.1`
 * **Release-Train:** `mc26.x`
 * **Minecraft:** `26.2`, `26.3`
 * **Loader:** Fabric
 * **Java:** 25+
-* **Build:** separat gebaut und getestet, 80 Unit-Tests grün.
+* **Build:** separat gebaut und getestet, 86 Unit-Tests grün.

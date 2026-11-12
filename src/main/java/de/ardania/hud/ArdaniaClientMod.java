@@ -92,15 +92,21 @@ public final class ArdaniaClientMod implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            boolean screenOpen = ArdaniaSyncManager.isAnyScreenOpen(client);
+
             net.minecraft.client.gui.screens.Screen toOpen = pendingScreenToOpen;
-            if (toOpen != null && !(client.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen)) {
+            if (toOpen != null && !screenOpen) {
                 pendingScreenToOpen = null;
                 openScreen(client, toOpen);
+                screenOpen = true;
             }
 
             ArdaniaSyncManager.getInstance().tick(client);
 
             while (this.syncKey.consumeClick()) {
+                if (screenOpen) {
+                    continue;
+                }
                 state.notifyStatUpdated();
                 if (client.player != null) {
                     client.player.sendOverlayMessage(ArdaniaI18n.translate("message.ardania_hud.syncing"));
@@ -109,6 +115,9 @@ public final class ArdaniaClientMod implements ClientModInitializer {
             }
 
             while (this.toggleKey.consumeClick()) {
+                if (screenOpen) {
+                    continue;
+                }
                 ArdaniaConfig config = ArdaniaConfig.getInstance();
                 long now = System.currentTimeMillis();
 

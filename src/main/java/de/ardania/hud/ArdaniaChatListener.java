@@ -45,6 +45,8 @@ public final class ArdaniaChatListener {
         ClientReceiveMessageEvents.ALLOW_GAME.register(this::onAllowGameMessage);
         ClientReceiveMessageEvents.ALLOW_CHAT.register((message, signedMessage, sender, params, receptionTimestamp) ->
                 onAllowGameMessage(message, false));
+        ClientSendMessageEvents.CHAT.register(message ->
+                ArdaniaSyncManager.getInstance().onPlayerChatMessage());
         ClientSendMessageEvents.COMMAND.register(command ->
                 ArdaniaSyncManager.getInstance().onPlayerManualCommand(command));
 
@@ -309,7 +311,7 @@ public final class ArdaniaChatListener {
                 }
             }
 
-            if (!overlay && ArdaniaSyncManager.getInstance().shouldSuppressMessage(raw, this.parser)) {
+            if (!overlay && ArdaniaSyncManager.getInstance().shouldSuppressMessage(raw, this.parser, selfName)) {
                 if (ArdaniaClientMod.DEBUG) {
                     ArdaniaClientMod.LOGGER.info("[ArdaniaHUD] Stille Serverantwort unterdrueckt: {}", raw);
                 }

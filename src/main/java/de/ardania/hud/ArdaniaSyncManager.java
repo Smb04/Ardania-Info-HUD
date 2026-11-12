@@ -73,10 +73,12 @@ public final class ArdaniaSyncManager {
     private static final ArdaniaSyncManager INSTANCE = new ArdaniaSyncManager();
 
     private static final long INTER_COMMAND_DELAY_MS = 1_500;
-    private static final long AUTO_SYNC_SUPPRESSION_WINDOW_MS = 3_500;
+    private static final long AUTO_SYNC_SUPPRESSION_WINDOW_MS = 4_000;
+    private static final long ONTIME_SUPPRESSION_WINDOW_MS = 8_000;
+    private static final long ONTIME_BLOCK_TAIL_WINDOW_MS = 1_500;
     private static final long ERROR_SUPPRESSION_WINDOW_MS = 3_000;
-    private static final long MANUAL_CMD_VIEW_WINDOW_MS = 10_000;
     private static final long MANUAL_CMD_GRACE_PERIOD_MS = 2_500;
+    private static final long SCREEN_CLOSE_GRACE_PERIOD_MS = 2_500;
     private static final long FOREIGN_PLAYER_QUERY_WINDOW_MS = 15_000;
     private static final long MANUAL_SYNC_COOLDOWN_MS = 5_000;
     private static final long JOBS_COOLDOWN_MS = 10_000;
@@ -123,6 +125,11 @@ public final class ArdaniaSyncManager {
     private long lastManualOntimeCmdTime = 0;
     private long lastAnyManualCommandTime = 0;
     private long lastForeignPlayerQueryTime = 0;
+    private long lastScreenOpenTime = 0;
+    private long lastChatActivityTime = 0;
+    private long ontimeBlockSuppressUntil = 0;
+    private boolean sawOntimeContentInBlock = false;
+    private long foreignJobsHeaderActiveUntil = 0;
 
     private boolean pendingMoneyQuery = false;
     private boolean pendingPointsQuery = false;
@@ -304,7 +311,9 @@ public final class ArdaniaSyncManager {
      * Merkt einen verzoegerten Abgleich des Euronen-Kontostands ({@code /geld}) vor.
      */
     public synchronized void triggerMoneySync() {
-        this.pendingMoneyQuery = true;
+        if (!this.commandQueue.contains("geld")) {
+            this.pendingMoneyQuery = true;
+        }
         this.lastActivityTime = now();
     }
 
@@ -312,7 +321,9 @@ public final class ArdaniaSyncManager {
      * Merkt einen verzoegerten Abgleich der ArdaPoints ({@code /ardapoints me}) vor.
      */
     public synchronized void triggerPointsSync() {
-        this.pendingPointsQuery = true;
+        if (!this.commandQueue.contains("ardapoints me")) {
+            this.pendingPointsQuery = true;
+        }
         this.lastActivityTime = now();
     }
 
@@ -320,7 +331,9 @@ public final class ArdaniaSyncManager {
      * Merkt einen verzoegerten Abgleich der Job-Statistiken ({@code /jobs stats}) vor.
      */
     public synchronized void triggerJobsSync() {
-        this.pendingJobsQuery = true;
+        if (!this.commandQueue.contains("jobs stats")) {
+            this.pendingJobsQuery = true;
+        }
         this.lastActivityTime = now();
     }
 
@@ -347,6 +360,11 @@ public final class ArdaniaSyncManager {
         this.pendingJobsQuery = false;
         this.pendingInitialJoinSync = false;
         this.lastKnownLevel = null;
+        this.lastScreenOpenTime = 0;
+        this.lastChatActivityTime = 0;
+        this.ontimeBlockSuppressUntil = 0;
+        this.sawOntimeContentInBlock = false;
+        this.foreignJobsHeaderActiveUntil = 0;
         resetDetectionState();
         TabListSnapshot.reset();
     }
@@ -417,13 +435,25 @@ public final class ArdaniaSyncManager {
             forceFullSync(client);
         }
 
+        boolean screenOpen = isAnyScreenOpen(client);
+        if (screenOpen) {
+            this.lastScreenOpenTime = now;
+        }
+        boolean interactionCooldownActive = screenOpen
+                || (this.lastScreenOpenTime > 0 && (now - this.lastScreenOpenTime) < SCREEN_CLOSE_GRACE_PERIOD_MS)
+                || (this.lastAnyManualCommandTime > 0 && (now - this.lastAnyManualCommandTime) < MANUAL_CMD_GRACE_PERIOD_MS)
+                || (this.lastChatActivityTime > 0 && (now - this.lastChatActivityTime) < SCREEN_CLOSE_GRACE_PERIOD_MS);
+
         // Befehle aus der Queue gestaffelt absenden, um Rate-Limits zu vermeiden.
-        // Waehrend der Spieler im Chat tippt oder kurz nach einem eigenen manuellen Befehl
-        // wird pausiert, um Server-Anti-Spam/Cooldowns fuer Moderator-Befehle nicht auszuloesen.
+        // Waehrend der Spieler einen Screen (z. B. Vanilla-Chat, LabyMod-Chat, Inventar)
+        // geoeffnet hat oder kurz nach dem Schliessen / Senden von Chat/Befehlen
+        // wird pausiert, damit keine Ausgaben beim Tippen im Chat landen.
+        if (interactionCooldownActive) {
+            return;
+        }
+
         if (!this.commandQueue.isEmpty()) {
-            if (!isChatScreenOpen(client) && (now - this.lastAnyManualCommandTime >= MANUAL_CMD_GRACE_PERIOD_MS)) {
-                dispatchNextCommand(conn::sendCommand, cmd -> isCommandSupportedByServer(conn, cmd));
-            }
+            dispatchNextCommand(conn::sendCommand, cmd -> isCommandSupportedByServer(conn, cmd));
             return;
         }
 
@@ -818,14 +848,21 @@ public final class ArdaniaSyncManager {
         return null;
     }
 
-    private static boolean isChatScreenOpen(Minecraft client) {
+    /**
+     * Prueft, ob aktuell ein beliebiger GUI-Screen geoeffnet ist (z. B. Vanilla-Chat,
+     * LabyMod-{@code LabyScreenRenderer}, Inventar oder Menue).
+     *
+     * @param client Minecraft-Client-Instanz
+     * @return {@code true}, sobald ein Screen geoeffnet ist
+     */
+    public static boolean isAnyScreenOpen(Minecraft client) {
         if (client == null) return false;
         try {
             for (String fName : new String[] { "screen", "field_1755" }) {
                 try {
                     var f = client.getClass().getField(fName);
                     Object scr = f.get(client);
-                    if (scr instanceof net.minecraft.client.gui.screens.ChatScreen) {
+                    if (scr != null) {
                         return true;
                     }
                 } catch (NoSuchFieldException ignored) {
@@ -836,7 +873,7 @@ public final class ArdaniaSyncManager {
                     try {
                         Method m = client.gui.getClass().getMethod(mName);
                         Object scr = m.invoke(client.gui);
-                        if (scr instanceof net.minecraft.client.gui.screens.ChatScreen) {
+                        if (scr != null) {
                             return true;
                         }
                     } catch (NoSuchMethodException ignored) {
@@ -855,12 +892,19 @@ public final class ArdaniaSyncManager {
         String lower = cmd.toLowerCase(Locale.ROOT).trim();
         if (lower.startsWith("geld") || lower.startsWith("money") || lower.startsWith("bal")) {
             this.lastAutoMoneySentTime = time;
+            this.lastMoneySyncTime = time;
+            this.pendingMoneyQuery = false;
         } else if (lower.startsWith("ardapoints") || lower.startsWith("points") || lower.startsWith("ap")) {
             this.lastAutoPointsSentTime = time;
+            this.lastPointsSyncTime = time;
+            this.pendingPointsQuery = false;
         } else if (lower.startsWith("jobs")) {
             this.lastAutoJobsSentTime = time;
+            this.lastJobsSyncTime = time;
+            this.pendingJobsQuery = false;
         } else if (lower.startsWith("ontime") || lower.startsWith("playtime") || lower.startsWith("spielzeit")) {
             this.lastAutoOntimeSentTime = time;
+            this.lastOntimeSyncTime = time;
         }
     }
 
@@ -901,6 +945,17 @@ public final class ArdaniaSyncManager {
     }
 
     /**
+     * Registriert eine vom Spieler abgesendete normale Chat-Nachricht, sodass aktives Chatten
+     * die Stillstands-AFK-Erkennung zuruecksetzt und unmittelbar danach eine kurze Ruhezeit
+     * fuer automatische Hintergrundbefehle eingehalten wird.
+     */
+    public synchronized void onPlayerChatMessage() {
+        long now = now();
+        this.lastChatActivityTime = now;
+        this.lastActivityTime = now;
+    }
+
+    /**
      * Registriert manuell vom Spieler eingegebene Chatbefehle, um entsprechende
      * Serverantworten im Chat sichtbar zu lassen statt sie stummzuschalten.
      *
@@ -919,32 +974,59 @@ public final class ArdaniaSyncManager {
         }
         long now = now();
         this.lastAnyManualCommandTime = now;
+        if (!cmd.equals("afk")) {
+            this.lastActivityTime = now;
+        }
 
-        if (cmd.startsWith("geld") || cmd.startsWith("money") || cmd.startsWith("bal")) {
-            this.lastManualMoneyCmdTime = now;
-            if (cmd.indexOf(' ') > 0) {
+        if (cmd.equals("geld") || cmd.equals("money") || cmd.equals("bal")
+                || cmd.startsWith("geld ") || cmd.startsWith("money ") || cmd.startsWith("bal ")) {
+            String rest = cmd.replaceFirst("^(?:geld|money|bal)\\s*", "");
+            if (rest.isEmpty()) {
+                this.lastManualMoneyCmdTime = now;
+                this.commandQueue.remove("geld");
+                this.pendingMoneyQuery = false;
+            } else {
                 this.lastForeignPlayerQueryTime = now;
             }
-        } else if (cmd.startsWith("ardapoints") || cmd.startsWith("points") || cmd.startsWith("ap")) {
-            this.lastManualPointsCmdTime = now;
+        } else if (cmd.equals("ardapoints") || cmd.startsWith("ardapoints ")
+                || cmd.equals("points") || cmd.startsWith("points ")
+                || cmd.equals("ap") || cmd.startsWith("ap ")) {
             String rest = cmd.replaceFirst("^(?:ardapoints|points|ap)\\s*", "");
-            if (!rest.isEmpty() && !rest.equals("me")) {
+            if (rest.isEmpty() || rest.equals("me")) {
+                this.lastManualPointsCmdTime = now;
+                this.commandQueue.remove("ardapoints me");
+                this.pendingPointsQuery = false;
+            } else {
                 this.lastForeignPlayerQueryTime = now;
             }
-        } else if (cmd.startsWith("jobs")) {
-            this.lastManualJobsCmdTime = now;
+        } else if (cmd.equals("jobs") || cmd.startsWith("jobs ")) {
             String rest = cmd.replaceFirst("^jobs\\s*", "");
-            if (!rest.isEmpty() && !rest.equals("stats")) {
+            if (rest.isEmpty() || rest.equals("stats")) {
+                this.lastManualJobsCmdTime = now;
+                this.commandQueue.remove("jobs stats");
+                this.pendingJobsQuery = false;
+            } else if (rest.startsWith("stats ")) {
                 this.lastForeignPlayerQueryTime = now;
             }
-        } else if (cmd.startsWith("ontime") || cmd.startsWith("playtime") || cmd.startsWith("spielzeit")) {
-            this.lastManualOntimeCmdTime = now;
-            if (cmd.indexOf(' ') > 0) {
+        } else if (cmd.equals("ontime") || cmd.startsWith("ontime ")
+                || cmd.equals("playtime") || cmd.startsWith("playtime ")
+                || cmd.equals("spielzeit") || cmd.startsWith("spielzeit ")) {
+            String rest = cmd.replaceFirst("^(?:ontime|playtime|spielzeit)\\s*", "");
+            if (rest.isEmpty()) {
+                this.lastManualOntimeCmdTime = now;
+                this.commandQueue.remove("ontime");
+            } else {
                 this.lastForeignPlayerQueryTime = now;
             }
-        } else if (cmd.startsWith("whois") || cmd.startsWith("seen") || cmd.startsWith("check")
-                || cmd.startsWith("cmi ") || cmd.startsWith("eco ") || cmd.startsWith("baninfo")
-                || cmd.startsWith("history") || cmd.startsWith("warnings") || cmd.startsWith("alts")) {
+        } else if (cmd.equals("whois") || cmd.startsWith("whois ")
+                || cmd.equals("seen") || cmd.startsWith("seen ")
+                || cmd.equals("check") || cmd.startsWith("check ")
+                || cmd.startsWith("cmi ")
+                || cmd.startsWith("eco ")
+                || cmd.equals("baninfo") || cmd.startsWith("baninfo ")
+                || cmd.equals("history") || cmd.startsWith("history ")
+                || cmd.equals("warnings") || cmd.startsWith("warnings ")
+                || cmd.equals("alts") || cmd.startsWith("alts ")) {
             this.lastForeignPlayerQueryTime = now;
         }
     }
@@ -957,49 +1039,72 @@ public final class ArdaniaSyncManager {
      * @return true, falls eine Fremdspieler-Abfrage aktiv ist
      */
     public synchronized boolean isForeignPlayerQueryActive() {
+        long now = now();
+        if (this.foreignJobsHeaderActiveUntil > now) {
+            return true;
+        }
         if (this.lastForeignPlayerQueryTime <= 0) {
             return false;
         }
-        return (now() - this.lastForeignPlayerQueryTime) <= FOREIGN_PLAYER_QUERY_WINDOW_MS;
+        return (now - this.lastForeignPlayerQueryTime) <= FOREIGN_PLAYER_QUERY_WINDOW_MS;
     }
 
     /**
      * Prueft, ob eine eingehende Chat-Nachricht stummgeschaltet werden soll.
-     *
-     * <p>Antworten werden ausschliesslich dann unterdrueckt, wenn sie innerhalb
-     * des kurzen Zeitfensters nach einer automatisierten Hintergrundabfrage des Mods
-     * eintreffen und kein manueller Spieler-/Moderator-Befehl dazwischenlag.</p>
      *
      * @param rawMessage Roher Nachrichteninhalt
      * @param parser     Parser zur Erkennung von Antwortmustern
      * @return true, falls die Nachricht nicht im Chat erscheinen soll
      */
     public synchronized boolean shouldSuppressMessage(String rawMessage, ArdaniaMessageParser parser) {
+        return shouldSuppressMessage(rawMessage, parser, null);
+    }
+
+    /**
+     * Prueft, ob eine eingehende Chat-Nachricht stummgeschaltet werden soll.
+     *
+     * <p>Antworten werden ausschliesslich dann unterdrueckt, wenn sie innerhalb
+     * des Zeitfensters nach einer automatisierten Hintergrundabfrage des Mods
+     * eintreffen, kein manueller Abgleich derselben Kategorie danach erfolgte und
+     * keine Fremdspieler-Abfrage (z. B. {@code /whois}) aktiv ist.</p>
+     *
+     * @param rawMessage         Roher Nachrichteninhalt
+     * @param parser             Parser zur Erkennung von Antwortmustern
+     * @param expectedPlayerName Name des lokalen Spielers zur Abgrenzung von Fremdspieler-Antworten
+     * @return true, falls die Nachricht nicht im Chat erscheinen soll
+     */
+    public synchronized boolean shouldSuppressMessage(String rawMessage, ArdaniaMessageParser parser, String expectedPlayerName) {
         long now = now();
 
         if (parser.isPointsBalanceResponse(rawMessage)) {
-            return this.lastAutoPointsSentTime > 0
+            return !isForeignPlayerQueryActive()
+                    && this.lastAutoPointsSentTime > 0
                     && (now - this.lastAutoPointsSentTime) <= AUTO_SYNC_SUPPRESSION_WINDOW_MS
-                    && this.lastAutoPointsSentTime >= this.lastAnyManualCommandTime
-                    && (this.lastManualPointsCmdTime <= 0 || (now - this.lastManualPointsCmdTime) > MANUAL_CMD_VIEW_WINDOW_MS);
+                    && this.lastAutoPointsSentTime > this.lastManualPointsCmdTime;
         }
         if (parser.isMoneyBalanceResponse(rawMessage)) {
-            return this.lastAutoMoneySentTime > 0
+            return !isForeignPlayerQueryActive()
+                    && this.lastAutoMoneySentTime > 0
                     && (now - this.lastAutoMoneySentTime) <= AUTO_SYNC_SUPPRESSION_WINDOW_MS
-                    && this.lastAutoMoneySentTime >= this.lastAnyManualCommandTime
-                    && (this.lastManualMoneyCmdTime <= 0 || (now - this.lastManualMoneyCmdTime) > MANUAL_CMD_VIEW_WINDOW_MS);
+                    && this.lastAutoMoneySentTime > this.lastManualMoneyCmdTime;
         }
         if (parser.isJobsStatsResponse(rawMessage)) {
-            return this.lastAutoJobsSentTime > 0
+            String jobsPlayer = parser.extractJobsPlayerName(rawMessage);
+            if (jobsPlayer != null) {
+                if (expectedPlayerName != null && !expectedPlayerName.isBlank()
+                        && !jobsPlayer.equalsIgnoreCase(expectedPlayerName.trim())) {
+                    this.foreignJobsHeaderActiveUntil = now + ONTIME_BLOCK_TAIL_WINDOW_MS;
+                    return false;
+                }
+                this.foreignJobsHeaderActiveUntil = 0;
+            }
+            return !isForeignPlayerQueryActive()
+                    && this.lastAutoJobsSentTime > 0
                     && (now - this.lastAutoJobsSentTime) <= AUTO_SYNC_SUPPRESSION_WINDOW_MS
-                    && this.lastAutoJobsSentTime >= this.lastAnyManualCommandTime
-                    && (this.lastManualJobsCmdTime <= 0 || (now - this.lastManualJobsCmdTime) > MANUAL_CMD_VIEW_WINDOW_MS);
+                    && this.lastAutoJobsSentTime > this.lastManualJobsCmdTime;
         }
-        if (parser.isOntimeResponse(rawMessage)) {
-            return this.lastAutoOntimeSentTime > 0
-                    && (now - this.lastAutoOntimeSentTime) <= AUTO_SYNC_SUPPRESSION_WINDOW_MS
-                    && this.lastAutoOntimeSentTime >= this.lastAnyManualCommandTime
-                    && (this.lastManualOntimeCmdTime <= 0 || (now - this.lastManualOntimeCmdTime) > MANUAL_CMD_VIEW_WINDOW_MS);
+        if (isOntimeOrBlockLine(rawMessage, parser, now, expectedPlayerName)) {
+            return true;
         }
         if (parser.isUnknownCommandError(rawMessage)) {
             if (parser.hasForeignCommandErrorContext(rawMessage)) {
@@ -1024,6 +1129,63 @@ public final class ArdaniaSyncManager {
                 return true;
             }
         }
+        return false;
+    }
+
+    private boolean isOntimeOrBlockLine(String rawMessage, ArdaniaMessageParser parser, long now, String expectedPlayerName) {
+        if (isForeignPlayerQueryActive()) {
+            this.ontimeBlockSuppressUntil = 0;
+            this.sawOntimeContentInBlock = false;
+            return false;
+        }
+
+        String ontimePlayer = parser.extractOntimePlayerName(rawMessage);
+        if (ontimePlayer != null && expectedPlayerName != null && !expectedPlayerName.isBlank()
+                && !ontimePlayer.equalsIgnoreCase(expectedPlayerName.trim())) {
+            this.ontimeBlockSuppressUntil = 0;
+            this.sawOntimeContentInBlock = false;
+            return false;
+        }
+
+        boolean autoOntimeWins = this.lastAutoOntimeSentTime > 0
+                && this.lastAutoOntimeSentTime > this.lastManualOntimeCmdTime;
+        boolean awaitingAutoOntime = autoOntimeWins
+                && (now - this.lastAutoOntimeSentTime) <= ONTIME_SUPPRESSION_WINDOW_MS;
+
+        if (parser.isOntimeResponse(rawMessage)) {
+            if (!awaitingAutoOntime) {
+                return false;
+            }
+            if (parser.isOntimeContentLine(rawMessage)) {
+                this.ontimeBlockSuppressUntil = now + ONTIME_BLOCK_TAIL_WINDOW_MS;
+                this.sawOntimeContentInBlock = true;
+            } else if (this.sawOntimeContentInBlock) {
+                this.ontimeBlockSuppressUntil = 0;
+                this.sawOntimeContentInBlock = false;
+            } else {
+                this.ontimeBlockSuppressUntil = now + ONTIME_BLOCK_TAIL_WINDOW_MS;
+            }
+            return true;
+        }
+
+        if (awaitingAutoOntime && parser.isOntimeSeparatorLine(rawMessage)) {
+            if (this.sawOntimeContentInBlock) {
+                this.ontimeBlockSuppressUntil = 0;
+                this.sawOntimeContentInBlock = false;
+            } else {
+                this.ontimeBlockSuppressUntil = now + ONTIME_BLOCK_TAIL_WINDOW_MS;
+            }
+            return true;
+        }
+
+        if (this.ontimeBlockSuppressUntil > now && autoOntimeWins && parser.isOntimeSeparatorOrBlankLine(rawMessage)) {
+            if (parser.isOntimeSeparatorLine(rawMessage) && this.sawOntimeContentInBlock) {
+                this.ontimeBlockSuppressUntil = 0;
+                this.sawOntimeContentInBlock = false;
+            }
+            return true;
+        }
+
         return false;
     }
 
@@ -1073,6 +1235,11 @@ public final class ArdaniaSyncManager {
         this.lastManualOntimeCmdTime = 0;
         this.lastAnyManualCommandTime = 0;
         this.lastForeignPlayerQueryTime = 0;
+        this.lastScreenOpenTime = 0;
+        this.lastChatActivityTime = 0;
+        this.ontimeBlockSuppressUntil = 0;
+        this.sawOntimeContentInBlock = false;
+        this.foreignJobsHeaderActiveUntil = 0;
         this.pendingMoneyQuery = false;
         this.pendingPointsQuery = false;
         this.pendingJobsQuery = false;

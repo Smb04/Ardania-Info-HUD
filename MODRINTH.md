@@ -87,13 +87,13 @@ Nie wieder `/money`, `/ardapoints me` oder `/jobs stats` per Hand eingeben müss
 
 ---
 
-### 📥 Installation & Kompatibilität (2.0.0)
+### 📥 Installation & Kompatibilität (2.0.1)
 
-1. Installiere den **Fabric Loader** für deine Minecraft-Version (**1.21.X**, **26.2** oder **26.3**).
+1. Installiere den **Fabric Loader** für deine Minecraft-Version (**1.21.8 – 1.21.11**, **26.2** oder **26.3**).
 2. Platziere die **Fabric API** in deinem `mods`-Ordner.
-3. *(Empfohlen)* Installiere **ModMenu**, um auf das Einstellungsmenü zugreifen zu können.
+3. *(Empfohlen)* Installiere **ModMenu**, um auf das Einstellungsmenü zugreifen zu können (alternativ im Spiel `/ardaniahud config`).
 4. Lade die passende Mod-Version herunter:
-   * **Minecraft 1.21.X (1.21 bis 1.21.11)**: `ardania-info-hud-mc1.21.x-2.0.0.jar`
-   * **Minecraft 26.2 und 26.3**: `ardania-info-hud-mc26.x-2.0.0.jar`
+   * **Minecraft 1.21.8 – 1.21.11**: `ardania-info-hud-mc1.21.x-2.0.1.jar`
+   * **Minecraft 26.2 und 26.3**: `ardania-info-hud-mc26.x-2.0.1.jar`
 
-**Getrennte Releases:** 1.21.x und 26.x werden ab 2.0.0 als zwei eigenständige Versionen veröffentlicht. Die passenden Changelogs stehen in `RELEASE_NOTES_MC1.21.x.md` und `RELEASE_NOTES_MC26.x.md`.
+**Getrennte Releases:** 1.21.x und 26.x werden als zwei eigenständige Versionen veröffentlicht. Die passenden Changelogs stehen in `RELEASE_NOTES_MC1.21.x.md` und `RELEASE_NOTES_MC26.x.md`.

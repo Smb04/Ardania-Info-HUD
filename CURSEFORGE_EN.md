@@ -102,11 +102,11 @@ Access the graphical settings screen across 3 tabs via **ModMenu** (or edit `.mi
 
 ---
 
-## 📦 Requirements & Installation (2.0.0)
+## 📦 Requirements & Installation (2.0.1)
 
 1. Install **[Fabric Loader](https://fabricmc.net/use/)** for your Minecraft version.
 2. Download **[Fabric API](https://modrinth.com/mod/fabric-api)** and place it into your `mods` folder.
-3. *(Recommended)* Download **[ModMenu](https://modrinth.com/mod/modmenu)** for in-game configuration.
+3. *(Recommended)* Download **[ModMenu](https://modrinth.com/mod/modmenu)** for in-game configuration (or use `/ardaniahud config` in-game).
 4. Download the appropriate JAR file for your version:
-   * **Minecraft 1.21.X (1.21 – 1.21.11)**: `ardania-info-hud-mc1.21.x-2.0.0.jar`
-   * **Minecraft 26.2 and 26.3**: `ardania-info-hud-mc26.x-2.0.0.jar`
+   * **Minecraft 1.21.8 – 1.21.11**: `ardania-info-hud-mc1.21.x-2.0.1.jar`
+   * **Minecraft 26.2 and 26.3**: `ardania-info-hud-mc26.x-2.0.1.jar`

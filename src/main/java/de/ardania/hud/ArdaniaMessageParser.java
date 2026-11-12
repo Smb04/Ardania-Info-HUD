@@ -59,10 +59,13 @@ public final class ArdaniaMessageParser {
             "(?iu)(?:Vote\\s*-?\\s*ziel|VoteParty|Community\\s*-?\\s*ziel|Danke\\s+f(?:\u00FC|ue)rs\\s+Voten)");
 
     private static final Pattern JOBS_HEADER = Pattern.compile(
-            "(?iu)\\[ArdaniaJobs\\]\\s+Spieler:");
+            "(?iu)\\[ArdaniaJobs\\]\\s+Spieler\\s*:\\s*([\\p{L}\\d_]{1,32})");
 
     private static final Pattern JOBS_NOTIFICATION = Pattern.compile(
             "(?iu)\\[ArdaniaJobs\\]");
+
+    private static final Pattern JOBS_QUEST_NOTIFICATION = Pattern.compile(
+            "(?iu)(?:t(?:\u00E4|ae)gliche\\s+Aufgaben?|/skipquest|Neue\\s+Aufgaben\\s+gibt\\s+es|Infos\\s+zu\\s+den\\s+Quests)");
 
     private static final Pattern JOBS_STATS_LINE = Pattern.compile(
             "(?imu)(?:[|:;#=\\-\\s]*)(?:\\b(?:Lv|Lvl|Level|Stufe)\\.?\\s*)?(\\d+|MAX)\\s+(?:for|f\u00FCr|als)\\s+(" + LETTERS + ")\\s*(?::(?:\\s*([0-9.,]+)\\s*/\\s*([0-9.,]+)(?:\\s*xp)?)?|$)");
@@ -88,6 +91,15 @@ public final class ArdaniaMessageParser {
 
     private static final Pattern ONTIME_LINE_SUPPRESS = Pattern.compile(
             "(?iu)(?:[-=~_]{4,}|Name:\\s*|Beigetreten\\s+am:\\s*|Hauptserver:|Mine:|Creative:|Eventserver:)");
+
+    private static final Pattern ONTIME_CONTENT_LINE = Pattern.compile(
+            "(?iu)(?:Name:\\s*|Beigetreten\\s+am:\\s*|Hauptserver:|Mine:|Creative:|Eventserver:)");
+
+    private static final Pattern ONTIME_SEPARATOR_CHARS = Pattern.compile(
+            "^[\\p{Z}\\s\\-=~_\\u2500-\\u257F]{4,}$");
+
+    private static final Pattern ONTIME_SEPARATOR_STRICT = Pattern.compile(
+            "^[\\p{Z}\\s]*[\\-=~_\\u2500-\\u257F]{4,}[\\p{Z}\\s]*$");
 
     /** Kopfzeilen eines vollstaendigen {@code /ontime}-Berichts. */
     private static final Pattern ONTIME_BLOCK_HEADER = Pattern.compile(
@@ -137,7 +149,7 @@ public final class ArdaniaMessageParser {
 
         boolean changed = parseMoney(message);
         changed |= parseArdaPoints(message);
-        changed |= parseJob(message);
+        changed |= parseJob(message, expectedPlayerName);
         changed |= parseOntime(message, expectedPlayerName);
         return changed;
     }
@@ -220,7 +232,49 @@ public final class ArdaniaMessageParser {
      */
     public boolean isOntimeResponse(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return false;
-        return ONTIME_LINE_SUPPRESS.matcher(normalize(rawMessage)).find();
+        String m = normalize(rawMessage);
+        return ONTIME_LINE_SUPPRESS.matcher(m).find() || ONTIME_SEPARATOR_STRICT.matcher(m).matches();
+    }
+
+    /**
+     * Prueft, ob die Nachricht eine Inhaltszeile (Name, Beitritt, Unterserver-Zeit)
+     * eines {@code /ontime}-Berichts ist.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei einer {@code /ontime}-Inhaltszeile
+     */
+    public boolean isOntimeContentLine(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) return false;
+        return ONTIME_CONTENT_LINE.matcher(normalize(rawMessage)).find();
+    }
+
+    /**
+     * Prueft, ob es sich um eine reine Trennlinie (Bindestriche, Unicode-Linien
+     * oder durchgestrichene Leerzeichen {@code §m   }) handelt.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei einer Trennlinie
+     */
+    public boolean isOntimeSeparatorLine(String rawMessage) {
+        if (rawMessage == null || rawMessage.isEmpty()) return false;
+        String m = normalize(rawMessage);
+        if (m.isBlank()) {
+            return rawMessage.toLowerCase(java.util.Locale.ROOT).contains("\u00A7m");
+        }
+        return ONTIME_SEPARATOR_STRICT.matcher(m).matches();
+    }
+
+    /**
+     * Prueft, ob es sich um eine Trenn- oder Leerzeile innerhalb eines
+     * laufenden {@code /ontime}-Berichts handelt.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return {@code true} bei einer Trenn- oder Leerzeile
+     */
+    public boolean isOntimeSeparatorOrBlankLine(String rawMessage) {
+        if (rawMessage == null) return false;
+        String m = normalize(rawMessage);
+        return m.isBlank() || ONTIME_SEPARATOR_CHARS.matcher(m).matches();
     }
 
     /**
@@ -286,7 +340,8 @@ public final class ArdaniaMessageParser {
         String m = normalize(rawMessage);
         return JOBS_NOTIFICATION.matcher(m).find()
                 && !JOBS_HEADER.matcher(m).find()
-                && !JOBS_STATS_LINE.matcher(m).find();
+                && !JOBS_STATS_LINE.matcher(m).find()
+                && !JOBS_QUEST_NOTIFICATION.matcher(m).find();
     }
 
     /**
@@ -372,7 +427,13 @@ public final class ArdaniaMessageParser {
         }
     }
 
-    private boolean parseJob(String message) {
+    private boolean parseJob(String message, String expectedPlayerName) {
+        String reportedPlayer = extractJobsPlayerNameFromNormalized(message);
+        if (reportedPlayer != null && expectedPlayerName != null && !expectedPlayerName.isBlank()
+                && !reportedPlayer.equalsIgnoreCase(expectedPlayerName.trim())) {
+            return false;
+        }
+
         boolean matched = false;
         if (JOBS_HEADER.matcher(message).find()) {
             this.state.clearJobs();
@@ -472,6 +533,25 @@ public final class ArdaniaMessageParser {
                     totalMinutes % 60);
         }
         return true;
+    }
+
+    /**
+     * Liest den Spielernamen aus der {@code [ArdaniaJobs] Spieler:}-Zeile eines
+     * {@code /jobs stats}-Berichts.
+     *
+     * @param rawMessage Roher Nachrichteninhalt
+     * @return Spielername oder {@code null}, wenn keine Kopfzeile vorhanden ist
+     */
+    public String extractJobsPlayerName(String rawMessage) {
+        if (rawMessage == null || rawMessage.isBlank()) {
+            return null;
+        }
+        return extractJobsPlayerNameFromNormalized(normalize(rawMessage));
+    }
+
+    private static String extractJobsPlayerNameFromNormalized(String message) {
+        Matcher m = JOBS_HEADER.matcher(message);
+        return m.find() ? m.group(1).trim() : null;
     }
 
     /**

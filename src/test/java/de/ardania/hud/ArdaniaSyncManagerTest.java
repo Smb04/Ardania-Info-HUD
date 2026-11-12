@@ -277,4 +277,80 @@ class ArdaniaSyncManagerTest {
         assertEquals(ArdaniaSyncManager.ServerType.UNKNOWN, ArdaniaSyncManager.ServerType.fromTag("INVALID"));
         assertEquals(ArdaniaSyncManager.ServerType.UNKNOWN, ArdaniaSyncManager.ServerType.fromTag(null));
     }
+
+    @Test
+    void jobsQuestsAndUnrelatedCommandsDoNotBreakAutoSuppression() {
+        String jobsHeader = "[ArdaniaJobs] Spieler: Zaoth0";
+        String jobsLine = "Max Level 30 for Mobhunter";
+
+        // Spieler fuehrt /jobs quests aus -> darf weder lastManualJobsCmdTime noch foreignQuery setzen
+        sync.onPlayerManualCommand("/jobs quests");
+        assertFalse(sync.isForeignPlayerQueryActive());
+
+        // 2,5s spaeter sendet der Mod automatisch jobs stats
+        fakeTime.addAndGet(2_500L);
+        sync.setLastCommandSentForTesting("jobs stats", fakeTime.get());
+
+        // Waehrend der Antwort noch unterwegs ist, nutzt der Spieler /skipquest oder /msg
+        fakeTime.addAndGet(50L);
+        sync.onPlayerManualCommand("/skipquest Mobhunter 1");
+        sync.onPlayerManualCommand("/msg Donata01 morgen");
+
+        fakeTime.addAndGet(50L);
+        assertTrue(sync.shouldSuppressMessage(jobsHeader, parser, "Zaoth0"));
+        assertTrue(sync.shouldSuppressMessage(jobsLine, parser, "Zaoth0"));
+    }
+
+    @Test
+    void foreignJobsStatsResponseIsNeverSuppressed() {
+        sync.setLastCommandSentForTesting("jobs stats", fakeTime.get());
+        fakeTime.addAndGet(50L);
+
+        assertFalse(sync.shouldSuppressMessage("[ArdaniaJobs] Spieler: Zaoth0", parser, "PX_Sven"));
+        assertTrue(sync.isForeignPlayerQueryActive());
+        assertFalse(sync.shouldSuppressMessage("Max Level 30 for Mobhunter", parser, "PX_Sven"));
+    }
+
+    @Test
+    void ontimeProxyLatencyAndSeparatorsAreSuppressedWhileChatDoesNotTriggerAfk() {
+        sync.onServerJoin();
+        fakeTime.addAndGet(4 * 60_000L);
+        sync.onPlayerChatMessage();
+        fakeTime.addAndGet(4 * 60_000L);
+        // 8 Minuten ohne Bewegung, aber vor 4 Minuten gechattet -> nicht AFK!
+        assertFalse(sync.isPlayerAfk());
+
+        // Auto-/ontime braucht 5 Sekunden (Proxy/DB-Latenz)
+        sync.setLastCommandSentForTesting("ontime", fakeTime.get());
+        fakeTime.addAndGet(5_000L);
+
+        assertTrue(sync.shouldSuppressMessage("\u00A7m                                                     ", parser, "PX_Sven"));
+        assertTrue(sync.shouldSuppressMessage("Name: PX_Sven", parser, "PX_Sven"));
+        assertTrue(sync.shouldSuppressMessage("Beigetreten am: 18.09.2017 15:21", parser, "PX_Sven"));
+        assertTrue(sync.shouldSuppressMessage("", parser, "PX_Sven"));
+        assertTrue(sync.shouldSuppressMessage("Hauptserver: 18 Tage 0 Stunden 24 Minute", parser, "PX_Sven"));
+        assertFalse(sync.shouldSuppressMessage("[Global][Mod] PX_Sven: Ach stimmt nicht", parser, "PX_Sven"));
+        assertTrue(sync.shouldSuppressMessage("\u00A7m                                                     ", parser, "PX_Sven"));
+
+        // Nach der Abschlusslinie duerfen normale Trennlinien/Leerzeilen nicht weiter geschluckt werden
+        assertFalse(sync.shouldSuppressMessage("", parser, "PX_Sven"));
+
+        // Manuelles /ontime direkt danach wird sofort sichtbar angezeigt
+        sync.onPlayerManualCommand("/ontime");
+        fakeTime.addAndGet(100L);
+        assertFalse(sync.shouldSuppressMessage("Name: PX_Sven", parser, "PX_Sven"));
+    }
+
+    @Test
+    void queuedCommandCannotBeTriggeredTwiceByPendingTriggerDuringDispatch() {
+        List<String> sent = new ArrayList<>();
+        sync.queueCommandForTesting("jobs stats");
+        // Waehrend jobs stats in der Queue wartet, meldet eine Nachricht ein Event
+        sync.triggerJobsSync();
+
+        assertTrue(sync.dispatchNextCommand(sent::add, cmd -> true));
+        assertEquals(List.of("jobs stats"), sent);
+        // Durch dispatchNextCommand wurde lastJobsSyncTime und pendingJobsQuery sauber zurueckgesetzt
+        assertFalse(sync.dispatchNextCommand(sent::add, cmd -> true));
+    }
 }
